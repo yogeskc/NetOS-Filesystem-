@@ -9,4 +9,4 @@ outname = netfs
 
 # default build command
 all: $(objpath)
-	$(cc) -lpthread $(objpath) -o $(outname)
+	$(cc) -lpthread -lm $(objpath) -o $(outname)

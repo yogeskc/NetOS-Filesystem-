@@ -13,13 +13,15 @@
 //		return value -2 = insufficient space for the volume
 //		volSize will be filled with the volume size
 //		blockSize will be filled with the block size
-#ifndef uint64_t
+/*#ifndef uint64_t
 typedef u_int64_t uint64_t;
 #endif
 #ifndef uint32_t
 typedef u_int32_t uint32_t;
-#endif
+#endif*/
 typedef unsigned long long ull_t;
+
+#include <stdint.h>
 
 int startPartitionSystem (char * filename, uint64_t * volSize, uint64_t * blockSize);
 

@@ -12,23 +12,23 @@
 #include "fsLow.h"
 
 
-int main (int argc, char *argv[])
-	{	
+int test (int argc, char *argv[])
+	{
 	char * filename;
 	uint64_t volumeSize;
 	uint64_t blockSize;
     int retVal;
-    
+
 	if (argc > 3)
 		{
 		filename = argv[1];
 		volumeSize = atoll (argv[2]);
 		blockSize = atoll (argv[3]);
 		}
-		
-	retVal = startPartitionSystem (filename, &volumeSize, &blockSize);	
+
+	retVal = startPartitionSystem (filename, &volumeSize, &blockSize);
 	printf("Opened %s, Volume Size: %llu;  BlockSize: %llu; Return %d\n", filename, (ull_t)volumeSize, (ull_t)blockSize, retVal);
-	
+
 	char * buf = malloc(blockSize *2);
 	char * buf2 = malloc(blockSize *2);
 	memset (buf, 0, blockSize*2);
@@ -43,10 +43,9 @@ int main (int argc, char *argv[])
 		}
 	else
 		printf("FAILURE on Write/Read\n");
-		
+
 	free (buf);
 	free(buf2);
 	closePartitionSystem();
-	return 0;	
+	return 0;
 	}
-	
