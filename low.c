@@ -10,7 +10,7 @@
 #include <errno.h>
 #include <math.h>
 #include <stdio.h>
-#include "fsLow.h"
+#include "low.h"
 
 typedef struct partitionInfo {
 	char 		volumePrefix[sizeof(PART_CAPTION)+2];

@@ -4,12 +4,33 @@
 #include <ctype.h>
 #include <string.h>
 
-#include "fsUtils.h"
+#include "utils.h"
+
+// Seek to the end of a file and return it's size
+unsigned get_file_size(char *path){
+    FILE *buffer;
+
+    buffer = fopen(path, "r");
+
+    // file doesnt exist
+    if(!buffer) {
+        return 0;
+    }
+
+    // Seek to buffer end and get size
+    fseek(buffer, 0, SEEK_END);
+    int size = ftell(buffer);
+    rewind(buffer);
+
+    fclose(buffer);
+
+    return size;
+}
 
 // Loads the file & Allocates +  reads a file into memory, return raw data
-void *read_file(char *path) {
+void *get_file_data(char *path) {
     void *data = NULL;
-    int size = 0;
+    int size = get_file_size(path);
     FILE *buffer;
 
     buffer = fopen(path, "r");
@@ -19,11 +40,6 @@ void *read_file(char *path) {
         printf("Error opening file '%s'\n", path);
         return data;
     }
-
-    // Seek to buffer end and get size
-    fseek(buffer, 0, SEEK_END);
-    size = ftell(buffer);
-    rewind(buffer);
 
     // Create space for file in memory
     data = malloc(size);
