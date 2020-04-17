@@ -15,4 +15,5 @@ typedef struct {
 	char d_name[256];
 } Entry;
 
-void copy_file(char *filepath, unsigned data_start, uint64_t blockSize);
+void fs_add_file(char *filepath, unsigned data_start, unsigned blockSize);
+void *fs_read_file(unsigned data_start, unsigned blockSize);
