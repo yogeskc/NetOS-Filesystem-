@@ -1,8 +1,7 @@
-﻿#include <stdio.h>
 #include <stdlib.h>
-#include "fsData.h" 
-#include "fsLow.h"
-#include "fsUtils.h"
+#include "commands.h" 
+#include "low.h"
+#include "utils.h"
 #include <sys/wait.h> 
 #include <unistd.h> 
 #include <stdlib.h> 
@@ -22,6 +21,7 @@ uint64_t volumeSize;
     
     char *extra_str[]={
         "exit"
+        "help"
     }; 
  
     int (*extra_func[])(char **) ={
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]){
 	// create filesystem file
 	startPartitionSystem ("test", &volumeSize, &blockSize);
      
-	copy_file("test.txt",10,blockSize); 
+	fs_add_file("test.txt",10,blockSize); 
 
 
 	return 0;
