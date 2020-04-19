@@ -5,7 +5,7 @@
 #include <string.h>
 
 #include "utils.h"
-
+//test
 // Seek to the end of a file and return it's size
 unsigned get_file_size(char *path){
     FILE *buffer;
