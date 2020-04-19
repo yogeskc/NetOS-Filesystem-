@@ -21,7 +21,7 @@ void fs_add_file(char *filepath, unsigned data_start, unsigned blockSize){
 	// Create new entry
 	Entry *new_entry = (Entry *) malloc(sizeof(Entry));
 	strcpy(new_entry->d_name, filepath);
-	new_entry->d_name[sizeof(new_entry->d_name)+1] = '\0';
+	new_entry->d_name[sizeof(new_entry->d_name)-1] = '\0';
 
 	// Detect record length and allocate blocks
 	new_entry->d_reclen = round(buf_size / blockSize); // always round up!!!

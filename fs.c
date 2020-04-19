@@ -56,7 +56,7 @@ uint64_t volumeSize;
                return (*extra_func[i])(args);
            }
        }
-      
+        return 0;
     }
     
     #define LSH_RL_BUFSIZE 1024
