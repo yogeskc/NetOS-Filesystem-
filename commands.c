@@ -9,13 +9,13 @@
 //updated
 
 // take a file from outside the NetOS filesystem and copy it in
-void fs_add_file(char *filepath, unsigned data_start, unsigned blockSize){
+int fs_add_file(char *filepath, unsigned data_start){
 	void *buffer = get_file_data(filepath);
 	int buf_size = get_file_size(filepath);
 
 	if(buffer == NULL){
 		printf("Error: %s file doesn’t exist!\n", filepath);
-		return;
+		return -1;
 	}
 
 	// Create new entry
@@ -24,7 +24,7 @@ void fs_add_file(char *filepath, unsigned data_start, unsigned blockSize){
 	new_entry->d_name[sizeof(new_entry->d_name)-1] = '\0';
 
 	// Detect record length and allocate blocks
-	new_entry->d_reclen = round(buf_size / blockSize); // always round up!!!
+	new_entry->d_reclen = round(buf_size / BLOCKSIZE); // always round up!!!
 
 	if(new_entry->d_reclen == 0){
 		new_entry->d_reclen = 1;
@@ -47,11 +47,13 @@ void fs_add_file(char *filepath, unsigned data_start, unsigned blockSize){
 
 	free(buffer);
 	free(new_entry);
+
+	return 0;
 }
 
 // Load the directory entry at data_start
-void *fs_read_file(unsigned data_start, unsigned blockSize){
-		void *buffer = malloc(blockSize);
+void *fs_read_file(unsigned data_start){
+		void *buffer = malloc(BLOCKSIZE);
 
 		// Load the directory entry @ data_start
 		LBAread(buffer, 1, data_start);
@@ -60,7 +62,7 @@ void *fs_read_file(unsigned data_start, unsigned blockSize){
 		Entry *entry = (Entry *)buffer;
 
 		// Allocate space for the data which the Entry points to
-		void *entry_data = malloc(entry->d_reclen * blockSize);
+		void *entry_data = malloc(entry->d_reclen * BLOCKSIZE);
 
 		// Load the data associated with the Entry
 		LBAread( entry_data, entry->d_reclen, entry->nug_cur.ptr_data_start);

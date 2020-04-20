@@ -57,3 +57,59 @@ void *get_file_data(char *path) {
     printf("Loaded file '%s'\n", path);
     return data;
 }
+
+
+// Return number of args within a given string
+int get_arg_count(char *input){
+	// Duplicate input so it doesn't screw up the original string
+	char *buffer = strdup(input);
+
+	// Loop init
+	int i = 0;
+	char *s;
+
+	// Iterate over spaces in input
+	while((s = strsep(&buffer, " ")) != NULL){
+		if(strlen(s) == 0)
+			continue;
+
+		i += 1;
+	}
+
+	free(buffer);
+	return i;
+}
+
+// Return an array of arguments split by a space delimeter
+char **get_arg_splits(char *input, int arg_count){
+	// Duplicate input so it doesn't screw up the original string
+	char *buffer = strdup(input);
+
+	// Allocate array of strings for each arg.
+	char **arg_splits = malloc((arg_count*sizeof(char *))+1);
+
+	// Finish array with a NULL terminator
+	arg_splits[arg_count-1] = NULL;
+
+	// Loop init
+	int i = 0;
+	char *s;
+
+	// Iterate over spaces in input
+	while((s = strsep(&buffer, " ")) != NULL){
+		if(strlen(s) == 0)
+			continue;
+
+		arg_splits[i] = strdup(s);
+
+		i += 1;
+	}
+
+	free(buffer);
+	return arg_splits;
+}
+
+char **get_args(char *input, int *argc){
+    *argc = get_arg_count(input);
+    return get_arg_splits(input, *argc);
+}
