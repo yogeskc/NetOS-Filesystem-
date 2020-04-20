@@ -4,14 +4,14 @@
 #include "utils.h"
 
 int main(int argc, char *argv[]){
-uint64_t blockSize = 512;
-uint64_t volumeSize = blockSize * 100;
+    uint64_t blockSize = 512;
+    uint64_t volumeSize = blockSize * 100;
 
-  lsh_loop();
+    // Init filesystem
+    startPartitionSystem ("test", &volumeSize, &blockSize);
 
-// create filesystem file
-startPartitionSystem ("test", &volumeSize, &blockSize);
+    // CLI loop
+    lsh_loop();
 
-
-return 0;
+    return 0;
 }
