@@ -1,19 +1,40 @@
 #pragma once
 
-#include <stdint.h>
+#include <stdlib.h>
+#include "utils.h"
 
-// This is our nugget struct
+#define BLOCKSIZE 512
+#define BLOCKCOUNT 100
+#define BLOCKTOTAL BLOCKSIZE * BLOCKCOUNT
+
 typedef struct {
-	long ptr_data_start;
+	long block_start;
 } Nugget;
 
 typedef struct {
-	Nugget nug_cur;		 //updown in the list
-    Nugget nug_next; 		//down in the list
-	// number of blocks it takes up
-    unsigned short d_reclen;
-	char d_name[256];
+	Nugget nug_cur;			 	// updown in the list
+    Nugget nug_next; 			// down in the list
+	unsigned short size; 		// size (in bytes) of the associated file / dir
+	char name[256];
 } Entry;
 
-int fs_add_file(char *filepath, unsigned data_start);
-void *fs_read_file(unsigned data_start);
+typedef struct{
+	long block_start;
+	long ptr_files[];
+} Directory;
+
+// FILE functions
+int fs_add_file(char *filepath, unsigned blk_start);	// todo - write new file somewhere in the fs, and append new entry to a Directory arr
+void *fs_read_file(unsigned blk_start);					// todo - read file based on a path. index in a Directory
+
+// DIR functions
+void fs_create_dir(char *name, unsigned blk_start);		// Creates a new directory in a specified
+
+// PATH functions
+Entry fs_resolve_path(char *path);		// Return an associated Entry with a given path
+
+// FREEMAP functions
+void freemap_init();
+void freemap_cleanup();
+void freemap_set(bool free, unsigned blk_start, unsigned blk_len); 		// iterate over range of free bits and set them to 1 or 0
+unsigned freemap_find_freespace(unsigned blk_len); 						// iterate over freemap and find a contiguous space of blk_len

@@ -1,7 +1,6 @@
 #pragma once
 
-#define BLOCKSIZE 512
-#define VOLSIZE 512 * 100
+typedef enum { false, true } bool;
 
 void *get_file_data(char *path);
 char **get_args(char *input, int *argc);

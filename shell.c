@@ -54,7 +54,7 @@ int lsh_parse_input(int argc, char **argv){
     // running associated function w/command
     if(strcmp(argv[0], "add_file") == 0){
         //return fs_add_file(argv[1], argv[2]);
-        fs_add_file(argv[1], 10);
+        //fs_add_file(argv[1], 10);
         return 0;
     }
 
