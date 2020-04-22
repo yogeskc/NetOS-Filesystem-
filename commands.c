@@ -7,6 +7,7 @@
 #include "low.h"
 #include "utils.h"
 
+
 // Given a filesize in bytes, calcualte it's required blocks to be stored
 unsigned get_required_blocks(unsigned size){
 	unsigned block_count = round(size / BLOCKSIZE);
@@ -73,18 +74,85 @@ void *fs_read_file(unsigned data_start){
 		return entry_data;
 }
 
-char *freemap;
+/*char *freemap = NULL;
 
+// Freemap functions
 void freemap_init(){
-	freemap = malloc(BLOCKTOTAL / sizeof(char));
+	freemap = malloc(BLOCKCOUNT / sizeof(char));
 }
 
 void freemap_cleanup(){
 	free(freemap);
-}
+}*/
 
-//idx = block/8.0
-//off = block%8.0
+/* Example freemap
+freemap = {
+	0x00011111,
+	0x11111111,
+	0x11000000,
+	0x00000000
+};
+
+* Freemap after running freemap_set(0, 4, 16)
+
+freemap = {
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000
+}; */
+
+void freemap_set(char *freemap, bool taken, unsigned blk_start, unsigned blk_end){
+	// Calculate indexes within the freemap to modify
+	int idx_start = blk_start / 8;
+	int idx_end = blk_end / 8;
+
+	// Calculate the offsets on the ends of the chars to skip
+	int off_start = blk_start % 8;
+	int off_end = blk_end % 8;
+
+	// This for loop will read every single content from blk_start to blk_end
+	for(int i = idx_start; i <= idx_end; i++){
+		// pointer to current 8 blocks in freemap
+		char *p = &freemap[i];
+
+		// new array for copying the content of a freemap char
+    		int mask[8] = {0,0,0,0,0,0,0,0};
+
+		// If block contains other values which we don't want to modify,
+		// skip over them using mask_start and mask_end. Helps select the right
+		// blocks to modify.
+		int mask_start = 0;
+		int mask_end = 8;
+
+		// set the mask_start and end
+		if(i == idx_start){
+			mask_start = off_start;
+		}
+
+		if(i == idx_end){
+			mask_end = off_end;
+		}
+
+		// Generate mask
+		for(int j = 0; j < 8; j++){
+			// Skip over values NOT within the mask_start -> mask_end range
+			if(j >= mask_start && j <= mask_end){
+				mask[j] = (int)taken;
+				continue;
+			}
+
+			// Maintain old values from original char
+			mask[j] = p[j];
+		}
+
+		// Convert into binary
+		char m = bits2byte(mask);
+
+		//Apply mask
+		*p = *p & m;
+	}
+}
 
 /*
 void fs_create_root(){
