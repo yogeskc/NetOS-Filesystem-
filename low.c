@@ -158,6 +158,8 @@ int startPartitionSystem (char * filename, uint64_t * volSize, uint64_t * blockS
 	free (buf);
 	if (retVal != PART_NOERROR)
 		close (fd);
+	if(retVal == PART_NOERROR && accessRet == -1)
+		retVal = PART_JUST_CREATED;
 	return retVal;
 	}
 

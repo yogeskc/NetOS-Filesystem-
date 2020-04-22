@@ -78,7 +78,8 @@ void *fs_read_file(unsigned data_start){
 
 // Freemap funcs
 void freemap_init(){
-	freemap = malloc(BLOCKCOUNT / sizeof(char));
+	freemap = malloc(FREEMAPSIZE);
+	printf("Allocating freemap size %d\n", FREEMAPSIZE);
 }
 
 void freemap_cleanup(){
@@ -97,13 +98,23 @@ void freemap_set(bool taken, unsigned blk_start, unsigned blk_end){
 		return;
 	}
 
+	// Clamp values
+	if(blk_start < 0){
+		blk_start = 0;
+	}
+	if(blk_end > FREEMAPSIZE){
+		blk_end = FREEMAPSIZE;
+	}
+
 	// Calculate indexes within the freemap to modify
 	int idx_start = blk_start / 8;
 	int idx_end = blk_end / 8;
 
 	// Calculate the offsets on the ends of the chars to skip
 	int off_start = blk_start % 8;
-	int off_end = blk_end % 8;
+	int off_end = (blk_end % 8);
+
+	printf("Setting bits on freemap idx %d+%d -> %d+%d\n", idx_start, off_start, idx_end, off_end);
 
 	// This for loop will read every single content from blk_start to blk_end
 	for(int i = idx_start; i <= idx_end; i++){
@@ -144,30 +155,38 @@ void freemap_set(bool taken, unsigned blk_start, unsigned blk_end){
 		char m = bits2byte(mask);
 
 		//Apply mask
-		*p = *p & m;
+		// Or mask for shifting 0's to 1's
+		if((int) taken == 1)
+			*p = *p | m;
+
+		// And mask for 0-ing out 1's
+		if((int) taken == 0)
+			*p = *p & m;
 	}
 }
 
 // Find the first contiguous free space with atleast 'blk_len' blocks available.
 // If no free spaces are availabe, then return -1
+// If auto_modify is set to true, will automatically mark the free blocks as taken
 unsigned freemap_find_freespace(unsigned blk_len){
 	if(freemap == NULL){
 		printf("Error: Freemap has not been initialized yet!\n");
-		return;
+		return -1;
 	}
 
 	int counter = 0; // count of contiguous free spaces
-	int free_start_idx = 0; // start of the current free space chain
+	int free_start_idx = 0; // start index (in freemap) of the current free space chain
+	int free_start_off = 0; // start offset (in freemap) of the current free space chain
 
 	// Search entire freemap
-	for(int i = 0; i < sizeof(freemap); i++){
-		char *p = &freemap[i];
-		int *bits = byte2bits(*p);
+	for(int i = 0; i < FREEMAPSIZE; i++){
+		int *bits = byte2bits(freemap[i]);
+		printbyte(freemap[i]);
 
 		// Search each row of freemap
-		for(int i = 0; i < 8; i++){
+		for(int j = 0; j < 8; j++){
 			// If a 1 is encountered, the free space is NOT contiguous. Reset counter
-			if(bits[i] == 1){
+			if(bits[j] == 1){
 				counter = 0;
 				continue;
 			}
@@ -175,18 +194,122 @@ unsigned freemap_find_freespace(unsigned blk_len){
 			// If the counter was just reset, set the current index to the free_start_idx.
 			if(counter == 0){
 				free_start_idx = i;
+				free_start_off = j;
 			}
 			counter += 1;
 
 			// Found 'blk_len' amount of contiguous free spaces! success
 			if(counter >= blk_len){
-				return free_start_idx;
+				return (free_start_idx*8) + j - 1;
 			}
 		}
 	}
 
 	// Couldn't find enough contiguous free spaces
 	return -1;
+}
+
+// Directory functions
+unsigned fs_create_root_dir(){
+	// Create root dir
+	Directory *root = malloc(sizeof(Directory));
+	unsigned root_start = freemap_find_freespace(1);		// Find space for root dir
+	freemap_set(1, root_start, root_start);
+
+	// Find space for (..) entry, point root dir towards it
+	root->block_start = freemap_find_freespace(1);
+	freemap_set(1, root->block_start, root->block_start);
+
+	// Create (..) entry
+	Entry *parent = malloc(sizeof(Entry));
+	Nugget parent_nug;
+	Nugget dummy_nug;
+
+	parent_nug.block_start = root_start; 		// Point the (..) entry back towards the root dir
+	dummy_nug.block_start = -1;
+
+	// Fill in (..) entry data
+	strcpy(parent->name, "..");
+	parent->nug_cur = parent_nug;
+	parent->nug_next = dummy_nug;
+
+	LBAwrite( (void *) root, root_start, 1);
+	LBAwrite( (void *) parent, root->block_start, 1);
+
+	return root_start;
+}
+
+void fs_create_dir(){
+	//
+}
+
+// Initial filesystem creation
+int fs_init(){
+	printf("Creating superblock, freemap and root dir\n");
+
+	// Allocate and mark freemap
+	freemap_init();
+	int freemap_start = 1;
+	int freemap_len = get_required_blocks(FREEMAPSIZE);
+	freemap_set(1, freemap_start, freemap_start+freemap_len);
+
+	// Allocate and mark superblock
+	Superblock *super = malloc(sizeof(Superblock));
+	freemap_set(1, 0, 1);
+
+	// Write freemap to disk (block 1)
+	LBAwrite( freemap, freemap_start, freemap_len);
+	printf("Wrote %d empty freemap blocks\n", freemap_len);
+
+	// Write root dir to disk (after freemap)
+	unsigned root_start = fs_create_root_dir();
+	printf("Created root dir at block %d\n", root_start);
+
+	// Create superblock (block 0)
+	super->ptr_freemap = freemap_start;
+	super->len_freemap = freemap_len;
+	super->ptr_root = root_start;
+
+	printf("Wrote superblock\n");
+
+	// Write superblock to disk
+	LBAwrite((void *)super, 0, 1);
+
+	return 0;
+}
+
+// Locate 'filename' and start filesystem off of it. Initialize the filesystem if necessary.
+int fs_start(char *filename){
+	// Create filesystem file
+	uint64_t blockSize = BLOCKSIZE;
+	uint64_t volumeSize = VOLSIZE;
+
+	int part_status = startPartitionSystem(filename, &volumeSize, &blockSize);
+	printf("Partition system started with status %d\n", part_status);
+
+	//
+	switch (part_status){
+		default:
+			printf("Error creating the filesystem file!\n");
+		break;
+
+		case 0:
+			printf("Filesystem already created. Loading.\n");
+		break;
+
+		case 2:
+			//part_status = fs_init();
+		break;
+	}
+
+	part_status = fs_init();
+
+	return part_status;
+}
+
+void fs_close(){
+	freemap_cleanup();
+	closePartitionSystem();
 }
 
 /*

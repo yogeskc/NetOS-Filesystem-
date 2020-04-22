@@ -1,3 +1,5 @@
 filesystem
 *.o
 netfs
+.vs/
+test

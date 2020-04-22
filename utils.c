@@ -141,3 +141,9 @@ int *byte2bits(char byte){
 	}
 	return bits;
 }
+
+void printbyte(char byte){
+    int *bits = byte2bits(byte);
+    for(int i = 0; i < 8; i++) printf("%d", bits[i]);
+    printf("\n");
+}
