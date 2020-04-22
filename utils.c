@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <math.h>
 
 #include "utils.h"
 
@@ -112,4 +113,17 @@ char **get_arg_splits(char *input, int arg_count){
 char **get_args(char *input, int *argc){
     *argc = get_arg_count(input);
     return get_arg_splits(input, *argc);
+}
+
+char bits2byte(int bits[8]){
+    char byte = (char)0x000000;
+
+    for(int i = 0; i < 8; i++){
+        byte <<= 1;
+        if(bits[i] == 1){
+            byte |= 1;
+        }
+    }
+
+    return byte;
 }
