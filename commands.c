@@ -7,6 +7,8 @@
 #include "low.h"
 #include "utils.h"
 
+// Freemap variable
+char *freemap = NULL;
 
 // Given a filesize in bytes, calcualte it's required blocks to be stored
 unsigned get_required_blocks(unsigned size){
@@ -56,53 +58,45 @@ int fs_add_file(char *filepath, unsigned data_start){
 
 // Load the directory entry at data_start
 void *fs_read_file(unsigned data_start){
-		void *buffer = malloc(BLOCKSIZE);
+	void *buffer = malloc(BLOCKSIZE);
 
-		// Load the directory entry @ data_start
-		LBAread(buffer, 1, data_start);
+	// Load the directory entry @ data_start
+	LBAread(buffer, 1, data_start);
 
-		// Convert raw data into Entry
-		Entry *entry = (Entry *)buffer;
+	// Convert raw data into Entry
+	Entry *entry = (Entry *)buffer;
 
-		// Allocate space for the data which the Entry points to
-		void *entry_data = malloc(entry->size);
+	// Allocate space for the data which the Entry points to
+	void *entry_data = malloc(entry->size);
 
-		// Load the data associated with the Entry
-		LBAread( entry_data, get_required_blocks(entry->size), entry->nug_cur.block_start);
+	// Load the data associated with the Entry
+	LBAread( entry_data, get_required_blocks(entry->size), entry->nug_cur.block_start);
 
-		free(buffer);
-		return entry_data;
+	free(buffer);
+	return entry_data;
 }
 
-/*char *freemap = NULL;
-
-// Freemap functions
+// Freemap funcs
 void freemap_init(){
 	freemap = malloc(BLOCKCOUNT / sizeof(char));
 }
 
 void freemap_cleanup(){
+	if(freemap == NULL){
+		printf("Error: Freemap has not been initialized yet!\n");
+		return;
+	}
+
 	free(freemap);
-}*/
+	freemap = NULL;
+}
 
-/* Example freemap
-freemap = {
-	0x00011111,
-	0x11111111,
-	0x11000000,
-	0x00000000
-};
+void freemap_set(bool taken, unsigned blk_start, unsigned blk_end){
+	if(freemap == NULL){
+		printf("Error: Freemap has not been initialized yet!\n");
+		return;
+	}
 
-* Freemap after running freemap_set(0, 4, 16)
-
-freemap = {
-	0x00000000,
-	0x00000000,
-	0x00000000,
-	0x00000000
-}; */
-
-void freemap_set(char *freemap, bool taken, unsigned blk_start, unsigned blk_end){
 	// Calculate indexes within the freemap to modify
 	int idx_start = blk_start / 8;
 	int idx_end = blk_end / 8;
@@ -117,7 +111,7 @@ void freemap_set(char *freemap, bool taken, unsigned blk_start, unsigned blk_end
 		char *p = &freemap[i];
 
 		// new array for copying the content of a freemap char
-    		int mask[8] = {0,0,0,0,0,0,0,0};
+		int mask[8] = {0,0,0,0,0,0,0,0};
 
 		// If block contains other values which we don't want to modify,
 		// skip over them using mask_start and mask_end. Helps select the right
@@ -154,37 +148,69 @@ void freemap_set(char *freemap, bool taken, unsigned blk_start, unsigned blk_end
 	}
 }
 
-// Find the first available free space with atleast 'blk_len' blocks available.
-unsigned freemap_find_freespace(char *freemap, unsigned blk_len){
-	int buf = 0;
+// Find the first contiguous free space with atleast 'blk_len' blocks available.
+// If no free spaces are availabe, then return -1
+unsigned freemap_find_freespace(unsigned blk_len){
+	if(freemap == NULL){
+		printf("Error: Freemap has not been initialized yet!\n");
+		return;
+	}
+
+	int counter = 0; // count of contiguous free spaces
+	int free_start_idx = 0; // start of the current free space chain
+
+	// Search entire freemap
 	for(int i = 0; i < sizeof(freemap); i++){
 		char *p = &freemap[i];
+		int *bits = byte2bits(*p);
+
+		// Search each row of freemap
+		for(int i = 0; i < 8; i++){
+			// If a 1 is encountered, the free space is NOT contiguous. Reset counter
+			if(bits[i] == 1){
+				counter = 0;
+				continue;
+			}
+
+			// If the counter was just reset, set the current index to the free_start_idx.
+			if(counter == 0){
+				free_start_idx = i;
+			}
+			counter += 1;
+
+			// Found 'blk_len' amount of contiguous free spaces! success
+			if(counter >= blk_len){
+				return free_start_idx;
+			}
+		}
 	}
+
+	// Couldn't find enough contiguous free spaces
 	return -1;
 }
 
 /*
 void fs_create_root(){
-	// Place directly after superblock
-	int root_block_start = 2;
+// Place directly after superblock
+int root_block_start = 2;
 
-	// Create the .. entry
-	Entry *root_parent_entry = (Entry *) malloc(sizeof(Entry));
-	strcpy(root_parent_entry->name, "..");
-	root_parent_entry->size = root_block_start;
+// Create the .. entry
+Entry *root_parent_entry = (Entry *) malloc(sizeof(Entry));
+strcpy(root_parent_entry->name, "..");
+root_parent_entry->size = root_block_start;
 
-	// Root .. entry
-	Nugget root_parent_nugget;
-	root_parent_nugget.block_start = 2;
-	root_parent_entry->nug_cur = root_parent_nugget;
-	root_parent_entry->nug_next = NULL;
+// Root .. entry
+Nugget root_parent_nugget;
+root_parent_nugget.block_start = 2;
+root_parent_entry->nug_cur = root_parent_nugget;
+root_parent_entry->nug_next = NULL;
 
-	free(root_parent_entry);
+free(root_parent_entry);
 }
 
 void fs_create_dir(char *name, unsigned parent, unsigned block){
-	// Create '..' directory, which points to parent
-	Entry *new_entry = (Entry *) malloc(sizeof(Entry));
-	strcpy(new_entry->name, "..");
-    new_entry->size = 0;
+// Create '..' directory, which points to parent
+Entry *new_entry = (Entry *) malloc(sizeof(Entry));
+strcpy(new_entry->name, "..");
+new_entry->size = 0;
 }*/

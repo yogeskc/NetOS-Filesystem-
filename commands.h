@@ -5,7 +5,7 @@
 
 #define BLOCKSIZE 512
 #define BLOCKCOUNT 100
-#define BLOCKTOTAL BLOCKSIZE * BLOCKCOUNT
+#define BLOCKVOL BLOCKSIZE * BLOCKCOUNT
 
 typedef struct {
 	long block_start;
@@ -13,14 +13,14 @@ typedef struct {
 
 typedef struct {
 	Nugget nug_cur;			 	// updown in the list
-    Nugget nug_next; 			// down in the list
+	Nugget nug_next; 			// down in the list
 	unsigned short size; 		// size (in bytes) of the associated file / dir
 	char name[256];
 } Entry;
 
 typedef struct{
 	long block_start;
-	long ptr_files[];
+	long ptr_files[50];
 } Directory;
 
 // FILE functions
@@ -28,13 +28,14 @@ int fs_add_file(char *filepath, unsigned blk_start);	// todo - write new file so
 void *fs_read_file(unsigned blk_start);					// todo - read file based on a path. index in a Directory
 
 // DIR functions
-void fs_create_dir(char *name, unsigned blk_start);		// Creates a new directory in a specified
+void fs_create_dir(char *name, unsigned blk_start);		// Creates a new directory in a specified location
 
 // PATH functions
 Entry fs_resolve_path(char *path);		// Return an associated Entry with a given path
 
 // FREEMAP functions
-//void freemap_init();
-//void freemap_cleanup();
-void freemap_set(char *freemap, bool taken, unsigned blk_start, unsigned blk_end); 	// iterate over range on freemap and set bits to 1 or 0
-unsigned freemap_find_freespace(char *freemap, unsigned blk_len); 									// iterate over freemap and find a contiguous space of blk_len
+void freemap_init();		// Create a new, 0'd out freemap. Only run on init filesystem creation
+void freemap_load();		// TODO - Search the fs for where the freemap is stored, then load it into memory
+void freemap_cleanup();		// Clear memory of current freemap
+void freemap_set(bool taken, unsigned blk_start, unsigned blk_end); 	// iterate over range on freemap and set bits to 1 or 0
+unsigned freemap_find_freespace(unsigned blk_len);	 					// search freemap for a contiguous free space of 'blk_len'
