@@ -154,6 +154,15 @@ void freemap_set(char *freemap, bool taken, unsigned blk_start, unsigned blk_end
 	}
 }
 
+// Find the first available free space with atleast 'blk_len' blocks available.
+unsigned freemap_find_freespace(char *freemap, unsigned blk_len){
+	int buf = 0;
+	for(int i = 0; i < sizeof(freemap); i++){
+		char *p = &freemap[i];
+	}
+	return -1;
+}
+
 /*
 void fs_create_root(){
 	// Place directly after superblock

@@ -115,6 +115,7 @@ char **get_args(char *input, int *argc){
     return get_arg_splits(input, *argc);
 }
 
+// converts array of binary values into a char byte (0xFF, 0x00, etc)
 char bits2byte(int bits[8]){
     char byte = (char)0x000000;
 
@@ -126,4 +127,17 @@ char bits2byte(int bits[8]){
     }
 
     return byte;
+}
+
+// Convert char binary value into bits, returns formatted as array
+int *byte2bits(char byte){
+	int *bits = malloc(8);
+	for(int i = 0; i < 7; i++){
+		if((byte & (1 << i)) > 0){
+			bits[7-i-1] = 1;
+		}else{
+			bits[7-i-1] = 0;
+		}
+	}
+	return bits;
 }

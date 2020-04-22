@@ -37,4 +37,4 @@ Entry fs_resolve_path(char *path);		// Return an associated Entry with a given p
 //void freemap_init();
 //void freemap_cleanup();
 void freemap_set(char *freemap, bool taken, unsigned blk_start, unsigned blk_end); 	// iterate over range on freemap and set bits to 1 or 0
-unsigned freemap_find_freespace(unsigned blk_len); 									// iterate over freemap and find a contiguous space of blk_len
+unsigned freemap_find_freespace(char *freemap, unsigned blk_len); 									// iterate over freemap and find a contiguous space of blk_len
