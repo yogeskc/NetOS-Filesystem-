@@ -131,12 +131,12 @@ char bits2byte(int bits[8]){
 
 // Convert char binary value into bits, returns formatted as array
 int *byte2bits(char byte){
-	int *bits = malloc(8);
-	for(int i = 0; i < 7; i++){
+	int *bits = malloc(sizeof(int *) * 8);
+	for(int i = 0; i < 8; i++){
 		if((byte & (1 << i)) > 0){
-			bits[7-i-1] = 1;
+			bits[7-i] = 1;
 		}else{
-			bits[7-i-1] = 0;
+			bits[7-i] = 0;
 		}
 	}
 	return bits;
