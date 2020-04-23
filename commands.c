@@ -79,18 +79,21 @@ void *fs_read_file(unsigned data_start){
 // Freemap funcs
 void freemap_init(){
 	freemap = malloc(FREEMAPSIZE);
-	printf("Allocating freemap size %d\n", FREEMAPSIZE);
+	printf("Allocating freemap size %lu\n", FREEMAPSIZE);
 }
 
+//cleaning up free map
 void freemap_cleanup(){
 	if(freemap == NULL){
 		printf("Error: Freemap has not been initialized yet!\n");
 		return;
 	}
-
+  
 	free(freemap);
 	freemap = NULL;
 }
+
+// getting the free-starting space to the ending space
 
 void freemap_set(bool taken, unsigned blk_start, unsigned blk_end){
 	if(freemap == NULL){
@@ -214,7 +217,7 @@ unsigned fs_create_root_dir(){
 	// Create root dir
 	Directory *root = malloc(sizeof(Directory));
 	unsigned root_start = freemap_find_freespace(1);		// Find space for root dir
-	freemap_set(1, root_start, root_start);
+	freemap_set(1, root_start, root_start);  //writing the root dir into it
 
 	// Find space for (..) entry, point root dir towards it
 	root->block_start = freemap_find_freespace(1);
