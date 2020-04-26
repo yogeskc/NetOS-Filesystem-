@@ -7,8 +7,9 @@
 #include "low.h"
 #include "utils.h"
 
-// Freemap variable
-char *freemap = NULL;
+// Global fs vars
+char *g_freemap = NULL;
+Superblock *g_super = NULL;
 
 // Given a filesize in bytes, calcualte it's required blocks to be stored
 unsigned get_required_blocks(unsigned size){
@@ -19,7 +20,7 @@ unsigned get_required_blocks(unsigned size){
 
 // take a file from outside the NetOS filesystem and copy it in
 int fs_add_file(char *filepath, unsigned data_start){
-	void *buffer = get_file_data(filepath);
+	/*void *buffer = get_file_data(filepath);
 	int buf_size = get_file_size(filepath);
 
 	if(buffer == NULL){
@@ -40,25 +41,25 @@ int fs_add_file(char *filepath, unsigned data_start){
 	// create nuggets
 	Nugget nug_cur;
 	Nugget nug_next;
-	nug_cur.block_start = data_start+1;
-	nug_next.block_start = -1;
+	nug_cur.block_data = data_start+1;
+	nug_next.block_data = -1;
 
 	// set nuggets
 	new_entry->nug_cur = nug_cur;
 	new_entry->nug_next = nug_next;
 
-	LBAwrite( buffer, get_required_blocks(buf_size), nug_cur.block_start);  //stores raw data from file
+	LBAwrite( buffer, get_required_blocks(buf_size), nug_cur.block_data);  //stores raw data from file
 	LBAwrite( (void *)new_entry, 1, data_start); // putting an entry
 
 	free(buffer);
-	free(new_entry);
+	free(new_entry);*/
 
 	return 0;
 }
 
 // Load the directory entry at data_start
 void *fs_read_file(unsigned data_start){
-	void *buffer = malloc(BLOCKSIZE);
+	/*void *buffer = malloc(BLOCKSIZE);
 
 	// Load the directory entry @ data_start
 	LBAread(buffer, 1, data_start);
@@ -70,33 +71,20 @@ void *fs_read_file(unsigned data_start){
 	void *entry_data = malloc(entry->size);
 
 	// Load the data associated with the Entry
-	LBAread( entry_data, get_required_blocks(entry->size), entry->nug_cur.block_start);
+	LBAread( entry_data, get_required_blocks(entry->size), entry->nug_cur.block_data);
 
 	free(buffer);
-	return entry_data;
+	return entry_data;*/
+	return NULL;
 }
 
-// Freemap funcs
-void freemap_init(){
-	freemap = malloc(FREEMAPSIZE);
-	printf("Allocating freemap size %d\n", FREEMAPSIZE);
-}
-
-void freemap_cleanup(){
-	if(freemap == NULL){
+void freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
+	if(g_freemap == NULL){
 		printf("Error: Freemap has not been initialized yet!\n");
 		return;
 	}
 
-	free(freemap);
-	freemap = NULL;
-}
-
-void freemap_set(bool taken, unsigned blk_start, unsigned blk_end){
-	if(freemap == NULL){
-		printf("Error: Freemap has not been initialized yet!\n");
-		return;
-	}
+	unsigned blk_end = blk_start + blk_len;
 
 	// Clamp values
 	if(blk_start < 0){
@@ -114,12 +102,12 @@ void freemap_set(bool taken, unsigned blk_start, unsigned blk_end){
 	int off_start = blk_start % 8;
 	int off_end = (blk_end % 8);
 
-	printf("Setting bits on freemap idx %d+%d -> %d+%d\n", idx_start, off_start, idx_end, off_end);
+	// printf("Setting bits on freemap idx %d+%d -> %d+%d\n", idx_start, off_start, idx_end, off_end);
 
 	// This for loop will read every single content from blk_start to blk_end
 	for(int i = idx_start; i <= idx_end; i++){
 		// pointer to current 8 blocks in freemap
-		char *p = &freemap[i];
+		char *p = &g_freemap[i];
 
 		// new array for copying the content of a freemap char
 		int mask[8] = {0,0,0,0,0,0,0,0};
@@ -169,7 +157,7 @@ void freemap_set(bool taken, unsigned blk_start, unsigned blk_end){
 // If no free spaces are availabe, then return -1
 // If auto_modify is set to true, will automatically mark the free blocks as taken
 unsigned freemap_find_freespace(unsigned blk_len){
-	if(freemap == NULL){
+	if(g_freemap == NULL){
 		printf("Error: Freemap has not been initialized yet!\n");
 		return -1;
 	}
@@ -180,8 +168,8 @@ unsigned freemap_find_freespace(unsigned blk_len){
 
 	// Search entire freemap
 	for(int i = 0; i < FREEMAPSIZE; i++){
-		int *bits = byte2bits(freemap[i]);
-		printbyte(freemap[i]);
+		int *bits = byte2bits(g_freemap[i]);
+		//printbyte(g_freemap[i]);
 
 		// Search each row of freemap
 		for(int j = 0; j < 8; j++){
@@ -200,9 +188,12 @@ unsigned freemap_find_freespace(unsigned blk_len){
 
 			// Found 'blk_len' amount of contiguous free spaces! success
 			if(counter >= blk_len){
+				free(bits);
 				return (free_start_idx*8) + j - 1;
 			}
 		}
+
+		free(bits);
 	}
 
 	// Couldn't find enough contiguous free spaces
@@ -213,69 +204,101 @@ unsigned freemap_find_freespace(unsigned blk_len){
 unsigned fs_create_root_dir(){
 	// Create root dir
 	Directory *root = malloc(sizeof(Directory));
-	unsigned root_start = freemap_find_freespace(1);		// Find space for root dir
-	freemap_set(1, root_start, root_start);
 
-	// Find space for (..) entry, point root dir towards it
-	root->block_start = freemap_find_freespace(1);
-	freemap_set(1, root->block_start, root->block_start);
+	// Find space for root dir and (..) entry
+	unsigned root_start = freemap_find_freespace(1);
+	freemap_set(1, 1, root_start);
+	unsigned parent_start = freemap_find_freespace(1);
+	freemap_set(1, 1, parent_start);
+
+	// Point root towards the (..) entry
+	root->block_start = parent_start;
 
 	// Create (..) entry
 	Entry *parent = malloc(sizeof(Entry));
-	Nugget parent_nug;
-	Nugget dummy_nug;
-
-	parent_nug.block_start = root_start; 		// Point the (..) entry back towards the root dir
-	dummy_nug.block_start = -1;
-
-	// Fill in (..) entry data
 	strcpy(parent->name, "..");
-	parent->nug_cur = parent_nug;
-	parent->nug_next = dummy_nug;
+	parent->block_data = root_start; 		// Point the (..) entry back towards the root dir
+	parent->block_next = -1;
 
-	LBAwrite( (void *) root, root_start, 1);
-	LBAwrite( (void *) parent, root->block_start, 1);
+	// Write to disk
+	LBAwrite(root, 1, root_start);
+	LBAwrite(parent, 1, parent_start);
+
+	free(root);
+	free(parent);
 
 	return root_start;
 }
 
-void fs_create_dir(){
-	//
+Directory *dir_load(unsigned blk_start){
+	Directory *dir = malloc(BLOCKSIZE);
+
+	if(LBAread(dir, 1, blk_start) == -1){
+		printf("Error reading directory\n");
+		free(dir);
+		return NULL;
+	}
+
+	return dir;
+}
+
+int dir_list(Directory *dir){
+	Entry *iter = malloc(BLOCKSIZE);
+
+	// Load first dir & print it's name
+	LBAread(iter, 1, dir->block_start);
+	printf("%s\n", iter->name);
+
+	// Continue loading dirs until end is reached
+	while(iter->block_next != -1){
+		printf("%s\n", iter->name);
+		LBAread(iter, 1, iter->block_next);
+	}
+
+	return 0;
 }
 
 // Initial filesystem creation
 int fs_init(){
-	printf("Creating superblock, freemap and root dir\n");
-
+	printf("Initialize core system\n");
+	
 	// Allocate and mark freemap
-	freemap_init();
+	g_freemap = malloc(FREEMAPSIZE);
 	int freemap_start = 1;
 	int freemap_len = get_required_blocks(FREEMAPSIZE);
-	freemap_set(1, freemap_start, freemap_start+freemap_len);
+	freemap_set(1, freemap_len, freemap_start);
 
 	// Allocate and mark superblock
-	Superblock *super = malloc(sizeof(Superblock));
-	freemap_set(1, 0, 1);
-
-	// Write freemap to disk (block 1)
-	LBAwrite( freemap, freemap_start, freemap_len);
-	printf("Wrote %d empty freemap blocks\n", freemap_len);
+	g_super = malloc(sizeof(Superblock));
+	freemap_set(1, 1, 0);
 
 	// Write root dir to disk (after freemap)
 	unsigned root_start = fs_create_root_dir();
-	printf("Created root dir at block %d\n", root_start);
+	printf("Wrote root dir at block %d\n", root_start);
 
 	// Create superblock (block 0)
-	super->ptr_freemap = freemap_start;
-	super->len_freemap = freemap_len;
-	super->ptr_root = root_start;
+	g_super->ptr_freemap = freemap_start;
+	g_super->len_freemap = freemap_len;
+	g_super->ptr_root = root_start;
 
+	// Write core system to disk
 	printf("Wrote superblock\n");
+	LBAwrite(g_super, 1, 0);
 
-	// Write superblock to disk
-	LBAwrite((void *)super, 0, 1);
+	printf("Wrote %d empty freemap blocks\n", freemap_len);
+	LBAwrite(g_freemap, freemap_len, freemap_start);
 
 	return 0;
+}
+
+int fs_load_globals(){
+	// Allocate / Load superblock
+	g_super = malloc(BLOCKSIZE);
+	LBAread(g_super, 1, 0);
+
+	// Allocate / Load freemap 
+	g_freemap = malloc(FREEMAPSIZE);
+	LBAread(g_freemap, g_super->len_freemap, g_super->ptr_freemap);
 }
 
 // Locate 'filename' and start filesystem off of it. Initialize the filesystem if necessary.
@@ -285,55 +308,33 @@ int fs_start(char *filename){
 	uint64_t volumeSize = VOLSIZE;
 
 	int part_status = startPartitionSystem(filename, &volumeSize, &blockSize);
-	printf("Partition system started with status %d\n", part_status);
+	//printf("Partition system started with status %d\n", part_status);
 
-	//
-	switch (part_status){
-		default:
-			printf("Error creating the filesystem file!\n");
-		break;
-
-		case 0:
-			printf("Filesystem already created. Loading.\n");
-		break;
-
-		case 2:
-			//part_status = fs_init();
-		break;
+	// Error on FS read from disk
+	if(part_status != 2 && part_status != 0){
+		printf("Error creating/loading the filesystem file!\n");
+		return part_status;
 	}
 
-	part_status = fs_init();
+	// If filesystem is brand new, create core structure 
+	if (part_status == 2){
+		part_status = fs_init();
+	}
 
+	// If filesystem already exists, load core structure
+	if(part_status == 0){
+		fs_load_globals();
+	}
+
+	// Load core structure (freemap & superblock)
+	printf("Loaded core filesystem vars.\n");
+	
 	return part_status;
 }
 
 void fs_close(){
-	freemap_cleanup();
 	closePartitionSystem();
+
+	free(g_freemap);
+	free(g_super);
 }
-
-/*
-void fs_create_root(){
-// Place directly after superblock
-int root_block_start = 2;
-
-// Create the .. entry
-Entry *root_parent_entry = (Entry *) malloc(sizeof(Entry));
-strcpy(root_parent_entry->name, "..");
-root_parent_entry->size = root_block_start;
-
-// Root .. entry
-Nugget root_parent_nugget;
-root_parent_nugget.block_start = 2;
-root_parent_entry->nug_cur = root_parent_nugget;
-root_parent_entry->nug_next = NULL;
-
-free(root_parent_entry);
-}
-
-void fs_create_dir(char *name, unsigned parent, unsigned block){
-// Create '..' directory, which points to parent
-Entry *new_entry = (Entry *) malloc(sizeof(Entry));
-strcpy(new_entry->name, "..");
-new_entry->size = 0;
-}*/

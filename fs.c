@@ -5,21 +5,16 @@
 #include "shell.h"
 #include "utils.h"
 
+extern Superblock *g_super;
+
 int main(int argc, char *argv[]){
-    uint64_t blockSize = BLOCKSIZE;
-    uint64_t volumeSize = BLOCKSIZE * BLOCKCOUNT;
+	fs_start("test");
+	
+	// print root dir
+	Directory *root = dir_load(g_super->ptr_root);
+	dir_list(root);
+	free(root);
 
-    // Init filesystem
-    startPartitionSystem ("test", &volumeSize, &blockSize);
-    freemap_init();
-    freemap_cleanup();
-    //printf("%d\n", sizeof(Entry));
-
-    char test = (char)0x11111111;
-
-    printf("%c\n", test);
-
-    // CLI loop
-    //lsh_loop();
-    return 0;
+	fs_close();
+	return 0;
 }

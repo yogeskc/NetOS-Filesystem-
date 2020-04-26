@@ -117,7 +117,7 @@ char **get_args(char *input, int *argc){
 
 // converts array of binary values into a char byte (0xFF, 0x00, etc)
 char bits2byte(int bits[8]){
-    char byte = (char)0x000000;
+    char byte = 0;
 
     for(int i = 0; i < 8; i++){
         byte <<= 1;

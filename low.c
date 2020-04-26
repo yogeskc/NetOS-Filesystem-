@@ -220,10 +220,10 @@ uint64_t LBAread (void * buffer, uint64_t lbaCount, uint64_t lbaPosition)
 	struct flock fl;
 
 	if (partInfop == NULL)		//System Not initialized
-		return 0;
+		return -1;
 
 	if(lbaCount == 0)
-		return 0;
+		return -1;
 
 	fl.l_type = F_RDLCK;
 	fl.l_whence = SEEK_SET;
@@ -235,7 +235,7 @@ uint64_t LBAread (void * buffer, uint64_t lbaCount, uint64_t lbaPosition)
 		{
 		//The are trying to read too far
 		if (lbaPosition+1 >= partInfop->numberOfBlocks)
-			return 0;	//no read because starting beyond volume
+			return -1;	//no read because starting beyond volume
 
 		lbaCount = 	partInfop->numberOfBlocks - lbaPosition;
 		fl.l_len = lbaCount * partInfop->blocksize;
