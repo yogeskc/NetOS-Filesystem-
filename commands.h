@@ -18,6 +18,7 @@ typedef struct {
 	long block_next;	// ptr to next entry in directory
 	unsigned short size; 	// size (bytes) of the associated file / dir
 	char name[256];
+	int is_dir;
 	Nugget info;
 } Entry;
 
@@ -35,9 +36,9 @@ typedef struct{
 int fs_start (char *filename);	// Start filesystem. Initialize if non-existant.
 void fs_close ();		// Close filesystem, free all globals
 
-// NAV functions
-int nav_change_dir (Entry *target);	// Change the current directory
-Directory *nav_get_dir ();		// Returns Directory object representing current dir (default: root)
+// NAVIGATION functions
+int fs_change_dir (char *name);		// Search for matching name within current directory, change current directory
+Directory *fs_get_cur_dir ();		// Returns Directory object representing current dir (default: root)
 
 // FILE functions
 int file_add (char *path_src, Directory *dest);		// Copy an external file into a specified directory

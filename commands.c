@@ -300,6 +300,7 @@ unsigned dir_create(char *name, Directory *container, bool is_root){
 		freemap_set(1,1, link_start);
 
 		strcpy(link->name, name);
+		link->is_dir = 1;
 	}
 	
 	// Find space / allocate directory 
@@ -320,6 +321,7 @@ unsigned dir_create(char *name, Directory *container, bool is_root){
 	// (..) entry is the first thing in our new directory.
 	dir->block_start = parent_start;
 	strcpy(parent->name, "..");
+	parent->is_dir = 1;
 
 	// Point (..) entry back to it's container (directory above)
 	// (..) entry for root points back to root
@@ -494,4 +496,27 @@ void fs_close(){
 	free(g_freemap);
 	free(g_super);
 	free(g_cur_dir);
+}
+
+// Change the current directory
+int fs_change_dir (char *name){
+	// Find matching entry within current dir
+	Entry *target = dir_find_entry(name, g_cur_dir);
+
+	if(target == NULL){
+		printf("Cannot cd to %s, directory not found\n", name);
+		return -1;
+	}
+
+	if(target->is_dir == 0){
+		printf("Cannot cd to %s, target is not a directory\n", target->name);
+		return -1;
+	}
+
+	LBAread(g_cur_dir, 1, target->block_data);
+}
+
+// Returns Directory object representing current dir (default: root)
+Directory *fs_get_cur_dir (){
+	return g_cur_dir;
 }
