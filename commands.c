@@ -199,35 +199,82 @@ unsigned freemap_find_freespace(unsigned blk_len){
 	// Couldn't find enough contiguous free spaces
 	return -1;
 }
+//
+// Add a new Entry into a directory chain, sync with LBAwrite
+unsigned dir_entry_append(Entry *ent, Directory *dir){
 
-// Directory functions
-unsigned fs_create_root_dir(){
+}
+
+// Remove an Entry from a directory chain, sync with LBAwrite
+unsigned dir_entry_rm(Entry *ent, Directory *dir){
+
+}
+
+unsigned dir_create(char *name, Directory *container, bool is_root){
 	// Create root dir
-	Directory *root = malloc(sizeof(Directory));
+	Directory *dir = malloc(sizeof(Directory));
 	
-	// Find space for root dir and (..) entry
-	unsigned root_start = freemap_find_freespace(1);
-	freemap_set(1, 1, root_start);
+	Entry *link = malloc(sizeof(Entry));
+	unsigned link_start = -1; 
+
+	// Create entry within container dir (link point to our new dir)
+	// Root dir doesn't have this.
+	if(!is_root){
+		link_start = freemap_find_freespace(1);
+		freemap_set(1,1, link_start);
+
+		strcpy(link->name, name);
+		dir_entry_append(link, container);
+	}
+	
+	// Find space for dir and (..) entry
+	unsigned dir_start = freemap_find_freespace(1);
+	freemap_set(1, 1, dir_start);
 	unsigned parent_start = freemap_find_freespace(1);
 	freemap_set(1, 1, parent_start);
 
-	// Point root towards the (..) entry
-	root->block_start = parent_start;
+	if(dir_start == -1 || parent_start == -1){
+		return -1;
+	}
+
+	// The (..) entry is the first in the linked list
+	dir->block_start = parent_start;
+
+	// Set the link target to directory, if not root
+	if(!is_root){
+		link->block_data = parent_start;
+	}
 
 	// Create (..) entry
 	Entry *parent = malloc(sizeof(Entry));
 	strcpy(parent->name, "..");
-	parent->block_data = root_start; 		// Point the (..) entry back towards the root dir
+
+	// Point (..) entry back to it's container (directory above)
+	if(is_root){
+		// (..) entry for root points back to itself! 
+		parent->block_data = dir_start;
+	}else{
+		// Otherwise, (..) entry points to container
+		parent->block_data = container->block_start;
+	}
+
+	// (..) entry is the only one, so next = -1 (end of linkedlist)
 	parent->block_next = -1;
 
 	// Write to disk
-	LBAwrite(root, 1, root_start);
+	LBAwrite(dir, 1, dir_start);
 	LBAwrite(parent, 1, parent_start);
+	
+	if(!is_root){
+		LBAwrite(parent, 1, link_start);
+		free(link);
+	}	
 
-	free(root);
+	// free buffers
+	free(dir);
 	free(parent);
 
-	return root_start;
+	return dir_start;
 }
 
 Directory *dir_load(unsigned blk_start){
@@ -273,7 +320,7 @@ int fs_init(){
 	freemap_set(1, 1, 0);
 
 	// Write root dir to disk (after freemap)
-	unsigned root_start = fs_create_root_dir();
+	unsigned root_start = dir_create("root", NULL, true);
 	printf("Wrote root dir at block %d\n", root_start);
 
 	// Create superblock (block 0)
