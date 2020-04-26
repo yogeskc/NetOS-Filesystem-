@@ -10,6 +10,7 @@
 // Global fs vars
 char *g_freemap = NULL;
 Superblock *g_super = NULL;
+Directory *g_cur_dir = NULL;
 
 // Given a filesize in bytes, calcualte it's required blocks to be stored
 unsigned get_required_blocks(unsigned size){
@@ -199,76 +200,151 @@ unsigned freemap_find_freespace(unsigned blk_len){
 	// Couldn't find enough contiguous free spaces
 	return -1;
 }
-//
-// Add a new Entry into a directory chain, sync with LBAwrite
-unsigned dir_entry_append(Entry *ent, Directory *dir){
 
+void freemap_write(){
+	int freemap_len = get_required_blocks(FREEMAPSIZE);
+	LBAwrite(g_freemap, freemap_len, 1);
+}
+
+// Add a new Entry into a directory chain, sync with LBAwrite
+unsigned dir_entry_append(unsigned new_ent_ptr, Entry *new_ent, Directory *dir){
+	Entry *iter = malloc(BLOCKSIZE);
+	unsigned iter_ptr = dir->block_start;
+
+	// Load first dir & check if it's the end
+	LBAread(iter, 1, iter_ptr);
+
+	// Continue loading dirs until end is reached
+	while(iter->block_next != -1){
+		iter_ptr = iter->block_next;
+		LBAread(iter, 1, iter_ptr);
+	}
+
+	// modify the end block, and point it to the new dir
+	iter->block_next = new_ent_ptr;
+	new_ent->block_next = -1;
+
+	// write changes to disk
+	LBAwrite(iter, 1, iter_ptr);
+	LBAwrite(new_ent, 1, new_ent_ptr);
+
+	// update freemap
+	freemap_set(1, 1, iter_ptr);
+	freemap_set(1, 1, new_ent_ptr);
+	freemap_write();
+
+	free(iter);
+
+	return 0;
 }
 
 // Remove an Entry from a directory chain, sync with LBAwrite
-unsigned dir_entry_rm(Entry *ent, Directory *dir){
+unsigned dir_entry_rm(unsigned ent_ptr, Directory *dir){
+	Entry *iter = malloc(BLOCKSIZE);
+	unsigned iter_ptr = dir->block_start;
 
+	// Load first dir & check if it's the end
+	LBAread(iter, 1, iter_ptr);
+
+	// Continue loading dirs until end is reached
+	while(iter->block_next != ent_ptr){
+		iter_ptr = iter->block_next;
+		LBAread(iter, 1, iter_ptr);
+
+		// Target entry not found
+		if(iter->block_next == -1){
+			return -1;
+		}
+	}
+
+	// Load the dir to remove
+	unsigned rm_block = iter->block_next;
+	Entry *to_remove = malloc(BLOCKSIZE);
+	LBAread(to_remove, 1, rm_block);
+
+	// Remove entry from chain
+	iter->block_next = to_remove->block_next;
+
+	// Write changes
+	LBAwrite(iter, 1, iter_ptr);
+
+	// update freemap
+	freemap_set(0, 1, rm_block);
+	freemap_write();
+
+	free(iter);
+	free(to_remove);
+
+	return 0;
 }
 
 unsigned dir_create(char *name, Directory *container, bool is_root){
-	// Create root dir
-	Directory *dir = malloc(sizeof(Directory));
-	
-	Entry *link = malloc(sizeof(Entry));
-	unsigned link_start = -1; 
+	// Entry within container dir (link point to our new dir)
+	Entry *link = NULL;
+	unsigned link_start = -1;
 
-	// Create entry within container dir (link point to our new dir)
-	// Root dir doesn't have this.
-	if(!is_root){
+	// check if dir already exists
+	if(is_root == false){
+		Entry *search = dir_find_entry (name, container);
+		if(search != NULL){
+			printf("Directory %s already exists!\n", name);
+			free(search);
+			return -1;
+		}
+	}
+
+	// Find space / allocate link entry
+	if(is_root == false){
+		link = malloc(sizeof(Entry));
 		link_start = freemap_find_freespace(1);
 		freemap_set(1,1, link_start);
 
 		strcpy(link->name, name);
-		dir_entry_append(link, container);
 	}
 	
-	// Find space for dir and (..) entry
+	// Find space / allocate directory 
+	Directory *dir = malloc(sizeof(Directory));
 	unsigned dir_start = freemap_find_freespace(1);
 	freemap_set(1, 1, dir_start);
+
+	// The link entry will point to our new directory
+	if(is_root == false){
+		link->block_data = dir_start;
+	}
+
+	// Find space / allocate (..) entry
+	Entry *parent = malloc(sizeof(Entry));
 	unsigned parent_start = freemap_find_freespace(1);
 	freemap_set(1, 1, parent_start);
 
-	if(dir_start == -1 || parent_start == -1){
-		return -1;
-	}
-
-	// The (..) entry is the first in the linked list
+	// (..) entry is the first thing in our new directory.
 	dir->block_start = parent_start;
-
-	// Set the link target to directory, if not root
-	if(!is_root){
-		link->block_data = parent_start;
-	}
-
-	// Create (..) entry
-	Entry *parent = malloc(sizeof(Entry));
 	strcpy(parent->name, "..");
 
 	// Point (..) entry back to it's container (directory above)
-	if(is_root){
-		// (..) entry for root points back to itself! 
+	// (..) entry for root points back to root
+	// Otherwise, (..) entry points back to container
+	if(is_root == true){
 		parent->block_data = dir_start;
 	}else{
-		// Otherwise, (..) entry points to container
 		parent->block_data = container->block_start;
 	}
 
-	// (..) entry is the only one, so next = -1 (end of linkedlist)
+	// (..) entry is the only one, so set next ptr to = -1 (end of linkedlist)
 	parent->block_next = -1;
 
 	// Write to disk
 	LBAwrite(dir, 1, dir_start);
 	LBAwrite(parent, 1, parent_start);
 	
-	if(!is_root){
-		LBAwrite(parent, 1, link_start);
+	// Write link entry to container dir (append at end of linkedlist)
+	if(is_root == false){
+		dir_entry_append(link_start, link, container);
 		free(link);
 	}	
+
+	// Update freemap
+	freemap_write();
 
 	// free buffers
 	free(dir);
@@ -298,11 +374,40 @@ int dir_list(Directory *dir){
 
 	// Continue loading dirs until end is reached
 	while(iter->block_next != -1){
-		printf("%s\n", iter->name);
 		LBAread(iter, 1, iter->block_next);
+		printf("%s\n", iter->name);
 	}
 
+	free(iter);
+
 	return 0;
+}
+
+// Search for an Entry in a given dir, return NULL if doesnt exist
+Entry *dir_find_entry (char *name, Directory *dir){
+	Entry *iter = malloc(BLOCKSIZE);
+
+	// Load first dir & print it's name
+	LBAread(iter, 1, dir->block_start);
+
+	// Check if names match
+	if(strcmp(iter->name, name) == 0){
+		return iter;
+	}
+
+	// Continue loading dirs until end is reached
+	while(iter->block_next != -1){
+		LBAread(iter, 1, iter->block_next);
+
+		// Check if names match
+		if(strcmp(iter->name, name) == 0){
+			return iter;
+		}
+	}
+
+	// Dir not found...
+	free(iter);
+	return NULL;
 }
 
 // Initial filesystem creation
@@ -346,6 +451,10 @@ int fs_load_globals(){
 	// Allocate / Load freemap 
 	g_freemap = malloc(FREEMAPSIZE);
 	LBAread(g_freemap, g_super->len_freemap, g_super->ptr_freemap);
+
+	// Allocate / Load cur_dir
+	g_cur_dir = malloc(BLOCKSIZE);
+	LBAread(g_cur_dir, 1, g_super->ptr_root);
 }
 
 // Locate 'filename' and start filesystem off of it. Initialize the filesystem if necessary.
@@ -384,4 +493,5 @@ void fs_close(){
 
 	free(g_freemap);
 	free(g_super);
+	free(g_cur_dir);
 }

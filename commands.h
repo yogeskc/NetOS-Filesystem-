@@ -50,7 +50,7 @@ unsigned dir_create (char *name, Directory *container, bool is_root);	// Create 
 unsigned dir_move (Directory *src, Directory *dest);	// Move an existing dir to another location 
 Directory *dir_load (unsigned blk_start);	// Load a dir based on it's block location
 int dir_list (Directory *dir);		// List all entries contained within a dir 
-Entry *dir_find_entry (char *name);	// Search for an Entry in a given dir, return NULL if doesnt exist
+Entry *dir_find_entry (char *name, Directory *dir);	// Search for an Entry in a given dir, return NULL if doesnt exist
 
 // FREEMAP functions
 void freemap_set (bool taken, unsigned blk_len, unsigned blk_start); 	// iterate over range on freemap and set bits to 1 or 0
