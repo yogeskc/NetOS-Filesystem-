@@ -204,7 +204,7 @@ unsigned freemap_find_freespace(unsigned blk_len){
 unsigned fs_create_root_dir(){
 	// Create root dir
 	Directory *root = malloc(sizeof(Directory));
-
+	
 	// Find space for root dir and (..) entry
 	unsigned root_start = freemap_find_freespace(1);
 	freemap_set(1, 1, root_start);
