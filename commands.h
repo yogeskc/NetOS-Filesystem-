@@ -41,7 +41,8 @@ int fs_change_dir (char *name);		// Search for matching name within current dire
 Directory *fs_get_cur_dir ();		// Returns Directory object representing current dir (default: root)
 
 // FILE functions
-int file_add (char *path_src, Directory *dest);		// Copy an external file into a specified directory
+int file_add_file_external (char *filepath);		// Copy an external file into current dir
+int file_write_file_external (char *name);		// Write internal file into external dir 
 void *file_read (Directory *dir, char *name);		// Read the data of a file based on it's container dir and name
 int file_rm (Directory *dir, char *name);		// Remove a file entry based on it's container dir and name
 int file_move (Directory *src, Directory *dest, char *name);	// Move a file with matching 'name', within dir 'src', into dir 'dest'

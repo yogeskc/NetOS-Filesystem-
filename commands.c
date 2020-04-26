@@ -19,8 +19,8 @@ unsigned get_required_blocks(unsigned size){
 	return block_count;
 }
 
-// take a file from outside the NetOS filesystem and copy it in
-int fs_add_file(char *filepath, unsigned data_start){
+// take a file from outside the NetOS filesystem and copy it into current dir
+int fs_add_file_external(char *filepath){
 	/*void *buffer = get_file_data(filepath);
 	int buf_size = get_file_size(filepath);
 
@@ -58,6 +58,10 @@ int fs_add_file(char *filepath, unsigned data_start){
 	return 0;
 }
 
+int fs_write_file_external(char *name){
+	return 0;
+}
+
 // Load the directory entry at data_start
 void *fs_read_file(unsigned data_start){
 	/*void *buffer = malloc(BLOCKSIZE);
@@ -77,6 +81,16 @@ void *fs_read_file(unsigned data_start){
 	free(buffer);
 	return entry_data;*/
 	return NULL;
+}
+
+// Remove a file entry based on it's container dir and name
+int file_rm (Directory *dir, char *name){
+	return 0;
+}
+
+// Move a file with matching 'name', within dir 'src', into dir 'dest'
+int file_move (Directory *src, Directory *dest, char *name){
+	return 0;
 }
 
 void freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
