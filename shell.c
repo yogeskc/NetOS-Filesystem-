@@ -12,10 +12,16 @@
 
 // command data
 Finder def_funcs[] = {
-    {"add_file", 2},
-    {"rm_file", 1},
-    {"cp_file", 2},
-    {"exit", 0}
+    {"add_file", 2},//add files 
+    {"rm_file", 1},//remove files DOESN'T WORK
+    {"cp_file", 2},//copy files DOESN'T WORK
+    {"exit", 0},
+    {"mv_file",2},//move files DOESN'T WORK
+    {"cdd",1},//creating dir
+    {"ls",0},//list dir
+    {"cpy_nf",2},//special command #1 copying a file to our file system
+    {"wrt_nf",2}//special command #2 writing a file to our file system DOESN'T WORK
+    
 };
 
 #define LSH_RL_BUFSIZE 1024
