@@ -1,7 +1,13 @@
 #pragma once
 
+#define BLOCKSIZE 512
+#define VOLSIZE 1024 * 1024 * 8
+#define BLOCKCOUNT (VOLSIZE / BLOCKSIZE)
+#define FREEMAPSIZE (BLOCKCOUNT / sizeof (char *))
+
 typedef enum { false, true } bool;
 
+unsigned get_required_blocks(unsigned size);
 void *get_file_data(char *path);
 char **get_args(char *input, int *argc);
 unsigned get_file_size(char *path);

@@ -7,6 +7,13 @@
 
 #include "utils.h"
 
+// Given a filesize in bytes, calcualte it's required blocks to be stored
+unsigned get_required_blocks(unsigned size){
+	unsigned block_count = round(size / BLOCKSIZE);
+	if(block_count == 0) block_count = 1;
+	return block_count;
+}
+
 // Seek to the end of a file and return it's size
 unsigned get_file_size(char *path){
     FILE *buffer;

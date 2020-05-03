@@ -3,11 +3,6 @@
 #include <stdlib.h>
 #include "utils.h"
 
-#define BLOCKSIZE 512
-#define VOLSIZE 1024 * 1024 * 8
-#define BLOCKCOUNT (VOLSIZE / BLOCKSIZE)
-#define FREEMAPSIZE (BLOCKCOUNT / sizeof (char *))
-
 // Metadata about the file
 typedef struct {
 	unsigned long time_created;
@@ -23,7 +18,9 @@ typedef struct {
 } Entry;
 
 typedef struct{
-	long block_start;
+	long block_start; // block of first dir in the chain
+	long block_dir; // current block where dir is stored 
+	char name[256];
 } Directory;
 
 typedef struct{
@@ -53,7 +50,3 @@ unsigned dir_move (Directory *src, Directory *dest);	// Move an existing dir to 
 Directory *dir_load (unsigned blk_start);	// Load a dir based on it's block location
 int dir_list (Directory *dir);		// List all entries contained within a dir 
 Entry *dir_find_entry (char *name, Directory *dir);	// Search for an Entry in a given dir, return NULL if doesnt exist
-
-// FREEMAP functions
-void freemap_set (bool taken, unsigned blk_len, unsigned blk_start); 	// iterate over range on freemap and set bits to 1 or 0
-unsigned freemap_find_freespace (unsigned blk_len);			// search freemap for a contiguous free space of 'blk_len'
