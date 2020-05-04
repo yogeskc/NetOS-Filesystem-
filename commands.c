@@ -46,11 +46,6 @@ long dir_create_root(){
 }
 
 long dir_create(char *name, long container_ptr){
-	// Load directory associated with container ptr
-	Directory *container = dir_load(container_ptr);
-	printf("Created dir %s in container %s:%d\n", name, container->name, container_ptr); 
-	free(container);
-
 	// check if dir already exists
 	if(dir_find_entry (name, container_ptr) != -1){
 		printf("Directory %s already exists!\n", name);
@@ -94,6 +89,11 @@ long dir_create(char *name, long container_ptr){
 	free(parent);
 	free(dir);
 
+	// Load directory associated with container ptr
+	Directory *container = dir_load(container_ptr);
+	printf("Created dir %s:%d in container %s:%d\n", name, dir_start, container->name, container_ptr); 
+	free(container);
+
 	// Append link to container end 
 	long cnt_end_ptr = dir_find_end(container_ptr);
 	Entry *cnt_end = malloc(BLOCKSIZE);
@@ -110,17 +110,25 @@ long dir_create(char *name, long container_ptr){
 	return dir_start;
 }
 
-int dir_list(long dir){
-	// Load directory associated with container ptr
-	Directory *d = malloc(BLOCKSIZE);
-	LBAread(d, 1, dir);
+long dir_move(long src, long dest){
 
-	printf("Listing DIR %s:%d\n", d->name, dir);
+}
+
+int dir_rm(char *name, long container_ptr){
+
+}
+
+int dir_list(long dir_ptr){
+	// Load directory associated with container ptr
+	Directory *dir = malloc(BLOCKSIZE);
+	LBAread(dir, 1, dir_ptr);
+
+	printf("Listing DIR %s:%d\n", dir->name, dir_ptr);
 
 	Entry *iter = malloc(BLOCKSIZE);
 
 	// Load first dir & print it's name
-	LBAread(iter, 1, d->block_start);
+	LBAread(iter, 1, dir->block_start);
 	printf("- %s\n", iter->name);
 
 	// Continue loading dirs until end is reached
@@ -130,7 +138,7 @@ int dir_list(long dir){
 	}
 
 	free(iter);
-	free(d);
+	free(dir);
 
 	return 0;
 }
@@ -190,6 +198,57 @@ Directory *dir_load(long dir_ptr){
 	Directory *dir = malloc(BLOCKSIZE); 
 	LBAread(dir, 1, dir_ptr);
 	return dir;
+}
+
+void *file_read (char *name, long dir_ptr){
+
+}
+
+int file_rm (char *name, long dir_ptr){
+
+}
+
+int file_move (char *name, long src, long dest){
+
+}
+
+int exfile_add (char *filepath, long dir_ptr){
+
+}
+
+int exfile_write (char *filepath, char *name, long dir_ptr){
+
+}
+
+// Change the current directory
+int fs_change_dir (char *name){
+	// Find matching entry within current dir
+	long target_ptr = dir_find_entry(name, g_cur_dir);
+
+	if(target_ptr == -1){
+		printf("Cannot cd to %s, directory not found\n", name);
+		return -1;
+	}
+
+	Entry *target = malloc(BLOCKSIZE);
+	LBAread(target, 1, target_ptr);
+
+	if(target->is_dir == 0){
+		printf("Cannot cd to %s, target is not a directory\n", target->name);
+		free(target);
+		return -1;
+	}
+
+	printf("cd to dir %s:%d\n", target->name, target_ptr);
+	g_cur_dir = target->block_data;
+
+	free(target);
+	return 0;
+}
+
+// Returns Directory object representing current dir (default: root)
+long fs_get_cur_dir (){
+	return g_cur_dir;
 }
 
 // Create a blank filesystem 
@@ -272,33 +331,3 @@ void fs_close(){
 	free(g_super);
 }
 
-// Change the current directory
-int fs_change_dir (char *name){
-	// Find matching entry within current dir
-	long target_ptr = dir_find_entry(name, g_cur_dir);
-
-	if(target_ptr == -1){
-		printf("Cannot cd to %s, directory not found\n", name);
-		return -1;
-	}
-
-	Entry *target = malloc(BLOCKSIZE);
-	LBAread(target, 1, target_ptr);
-
-	if(target->is_dir == 0){
-		printf("Cannot cd to %s, target is not a directory\n", target->name);
-		free(target);
-		return -1;
-	}
-
-	printf("cd to dir %s:%d\n", target->name, target_ptr);
-	g_cur_dir = target->block_data;
-
-	free(target);
-	return 0;
-}
-
-// Returns Directory object representing current dir (default: root)
-long fs_get_cur_dir (){
-	return g_cur_dir;
-}

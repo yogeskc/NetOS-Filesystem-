@@ -35,9 +35,9 @@ typedef struct{
 
 // Create a new directory 
 // name - name of new directory to create
-// dir - block location of container directory
+// dir_ptr - block location of container directory
 // return - new block location of created directory
-long dir_create (char *name, long dir);	
+long dir_create (char *name, long container_ptr);	
 
 // Move a directory into another
 // src - block location of directory to modify
@@ -45,43 +45,50 @@ long dir_create (char *name, long dir);
 // return - new block location of src directory
 long dir_move (long src, long dest);
 
+// Delete a directory and all entries within it
+// name - name of directory to delete
+// dir - block location of container directory
+// return - 0 on success, -1 otherwise
+int dir_rm(char *name, long container_ptr);
+
 // Load a pointer to a directory into a Directory struct
-// dir - block location of target directory 
+// dir_ptr - block location of target directory 
 // return - A malloc'd struct filled with the target directory's data
-Directory *dir_load (long dir);			
+Directory *dir_load (long dir_ptr);			
 
 // Remove a directory and all entries within it 
-// dir - block location of target directory
+// dir_ptr - block location of target directory
 // return - 0 if success, -1 otherwise 
-int dir_list (long dir);
-
-// List all entries within a directory
-// dir - block location of target directory
-// return - 0 if success, -1 otherwise 
-int dir_list (long dir);
+int dir_list (long dir_ptr);
 
 // Search a directory for a given entry matching "name"
 // name - string to search for
 // dir - block location of directory to search
 // return - pointer to search result, -1 if doesn't exist
-long dir_find_entry (char *name, long dir);	
+long dir_find_entry (char *name, long dir_ptr);	
 
 // Follow the chain of entries within a directory until the end is reached
 // dir - block location of directory to iterate 
 // return - pointer to final element
 long dir_find_end (long dir);	
 
-// NAVIGATION functions
-
-// Search for matching name within current directory, then move into that directory
-// name - directory to search for
-// return - 0 on success, -1 otherwise
-int fs_change_dir (char *name);		
-
-// Returns block location of current directory (default: root)
-long fs_get_cur_dir ();
-
 // FILE functions
+
+// Search for an entry within a directory, return it's raw associated data
+// name - name of file to search for
+// dir - block location of directory to search
+void *file_read (char *name, long dir_ptr);
+
+// Search for an entry within a directory, delete it. MUST BE A FILE
+// name - name of file to search for
+// dir - block location of directory to search
+int file_rm (char *name, long dir_ptr);
+
+// Search for entry within a directory, move it to another directory
+// name - name of file to search for
+// src - block location of directory to search
+// dest - block location of directory to move file into
+int file_move (char *name, long src, long dest);	
 
 // Copy an external file into an internal directory
 // filepath - path to file in regular filesystem
@@ -96,21 +103,15 @@ int exfile_add (char *filepath, long dir);
 // return - 0 on success, -1 otherwise
 int exfile_write (char *filepath, char *name, long dir);
 
-// Search for an entry within a directory, return it's raw associated data
-// name - name of file to search for
-// dir - block location of directory to search
-void *file_read (char *name, long dir);
+// NAVIGATION functions
 
-// Search for an entry within a directory, delete it.
-// name - name of file to search for
-// dir - block location of directory to search
-int file_rm (char *name, long dir);		
+// Search for matching name within current directory, then move into that directory
+// name - directory to search for
+// return - 0 on success, -1 otherwise
+int fs_change_dir (char *name);		
 
-// Search for entry within a directory, move it to another directory
-// name - name of file to search for
-// src - block location of directory to search
-// dest - block location of directory to move file into
-int file_move (char *name, long src, long dest);	
+// Returns block location of current directory (default: root)
+long fs_get_cur_dir ();
 
 // FS core functions
 
