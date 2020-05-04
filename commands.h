@@ -3,11 +3,12 @@
 #include <stdlib.h>
 #include "utils.h"
 
-// Metadata about the file
+// Metadata about a given entry
 typedef struct {
 	unsigned long time_created;
 } Nugget;
 
+// Data structure which points to a directory or file
 typedef struct {
 	long block_data; 	// ptr to data / directory start block
 	long block_next;	// ptr to next entry in directory
@@ -17,12 +18,13 @@ typedef struct {
 	Nugget info;
 } Entry;
 
+// Data structure which points to the beginning of a directory entry chain
 typedef struct{
 	long block_start; // block of first dir in the chain
-	long block_dir; // current block where dir is stored 
 	char name[256];
 } Directory;
 
+// Data structure for holding global filesystem info
 typedef struct{
 	long ptr_root; 		// Pointer to root directory
 	long ptr_freemap;	// Pointer to freemap blocks
@@ -30,24 +32,92 @@ typedef struct{
 } Superblock;
 
 // DIR functions
-unsigned dir_create (char *name, Directory *container);	// Create a new dir within a dir struct
-unsigned dir_move (Directory *src, Directory *dest);	// Move an existing dir to another location 
-Directory *dir_load (unsigned blk_start);	// Load a dir based on it's block location
-int dir_list (Directory *dir);		// List all entries contained within a dir 
-unsigned dir_find_entry (char *name, Directory *dir);	// Search for an Entry in a given dir, return NULL if doesnt exist
-unsigned dir_find_end (Directory *dir);	// Search for an Entry in a given dir, return NULL if doesnt exist
+
+// Create a new directory 
+// name - name of new directory to create
+// dir - block location of container directory
+// return - new block location of created directory
+long dir_create (char *name, long dir);	
+
+// Move a directory into another
+// src - block location of directory to modify
+// dest - block location of directory to move into
+// return - new block location of src directory
+long dir_move (long src, long dest);
+
+// Load a pointer to a directory into a Directory struct
+// dir - block location of target directory 
+// return - A malloc'd struct filled with the target directory's data
+Directory *dir_load (long dir);			
+
+// Remove a directory and all entries within it 
+// dir - block location of target directory
+// return - 0 if success, -1 otherwise 
+int dir_list (long dir);
+
+// List all entries within a directory
+// dir - block location of target directory
+// return - 0 if success, -1 otherwise 
+int dir_list (long dir);
+
+// Search a directory for a given entry matching "name"
+// name - string to search for
+// dir - block location of directory to search
+// return - pointer to search result, -1 if doesn't exist
+long dir_find_entry (char *name, long dir);	
+
+// Follow the chain of entries within a directory until the end is reached
+// dir - block location of directory to iterate 
+// return - pointer to final element
+long dir_find_end (long dir);	
 
 // NAVIGATION functions
-int fs_change_dir (char *name);		// Search for matching name within current directory, change current directory
-Directory *fs_get_cur_dir ();		// Returns Directory object representing current dir (default: root)
+
+// Search for matching name within current directory, then move into that directory
+// name - directory to search for
+// return - 0 on success, -1 otherwise
+int fs_change_dir (char *name);		
+
+// Returns block location of current directory (default: root)
+long fs_get_cur_dir ();
 
 // FILE functions
-int file_add_file_external (char *filepath);		// Copy an external file into current dir
-int file_write_file_external (char *name);		// Write internal file into external dir 
-void *file_read (Directory *dir, char *name);		// Read the data of a file based on it's container dir and name
-int file_rm (Directory *dir, char *name);		// Remove a file entry based on it's container dir and name
-int file_move (Directory *src, Directory *dest, char *name);	// Move a file with matching 'name', within dir 'src', into dir 'dest'
+
+// Copy an external file into an internal directory
+// filepath - path to file in regular filesystem
+// dir - block location of directory to copy into
+// return - 0 on success, -1 otherwise
+int exfile_add (char *filepath, long dir);
+
+// Search for an internal file within a given directory, then write it out to the external filesystem
+// filepath - Path to where the internal file will be placed in the external filesystem
+// name - name of file to copy out
+// dir - block location of directory to search 
+// return - 0 on success, -1 otherwise
+int exfile_write (char *filepath, char *name, long dir);
+
+// Search for an entry within a directory, return it's raw associated data
+// name - name of file to search for
+// dir - block location of directory to search
+void *file_read (char *name, long dir);
+
+// Search for an entry within a directory, delete it.
+// name - name of file to search for
+// dir - block location of directory to search
+int file_rm (char *name, long dir);		
+
+// Search for entry within a directory, move it to another directory
+// name - name of file to search for
+// src - block location of directory to search
+// dest - block location of directory to move file into
+int file_move (char *name, long src, long dest);	
 
 // FS core functions
-int fs_start (char *filename);	// Start filesystem. Initialize if non-existant.
-void fs_close ();		// Close filesystem, free all globals
+
+// Start the filesystem. Create empty if non-existant. Otherwise, load the existing data.
+// filename - filepath to filesystem data file.
+// return - 0 on success, -1 otherwise
+int fs_start (char *filename);
+
+// Close filesystem, free all globals
+void fs_close ();

@@ -1,6 +1,6 @@
 #include <math.h>
 #include <stdio.h>
-#include <stdlib.h>
+#include <stdlib.h> 
 #include <string.h>
 
 #include "commands.h"
@@ -10,23 +10,20 @@
 
 // Global fs vars
 Superblock *g_super = NULL;
-Directory *g_cur_dir = NULL;
+long g_cur_dir = -1;
 
-unsigned dir_create_root(){	
+long dir_create_root(){	
 	// Allocate root directory and (..) entry
 	Directory *root = malloc(sizeof(Directory));
 	Entry *parent = malloc(sizeof(Entry));
 
 	// Mark in freemap
-	unsigned root_start = freemap_find_freespace(1);
-	freemap_set(1, 1, root_start);
-	unsigned parent_start = freemap_find_freespace(1);
-	freemap_set(1, 1, parent_start);
+	long root_start = freemap_find_freespace(1, true);
+	long parent_start = freemap_find_freespace(1, true);
 
 	// Fill out root data
 	strcpy(root->name, "root");
 	root->block_start = parent_start;
-	root->block_dir = root_start;
 
 	// Fill out (..) data
 	strcpy(parent->name, "..");
@@ -48,10 +45,14 @@ unsigned dir_create_root(){
 	return root_start;
 }
 
-unsigned dir_create(char *name, Directory *container){
-	printf("Creating dir %s in container %s\n", name, container->name); 
+long dir_create(char *name, long container_ptr){
+	// Load directory associated with container ptr
+	Directory *container = dir_load(container_ptr);
+	printf("Created dir %s in container %s:%d\n", name, container->name, container_ptr); 
+	free(container);
+
 	// check if dir already exists
-	if(dir_find_entry (name, container) != -1){
+	if(dir_find_entry (name, container_ptr) != -1){
 		printf("Directory %s already exists!\n", name);
 		return -1;
 	}
@@ -62,14 +63,9 @@ unsigned dir_create(char *name, Directory *container){
 	Directory *dir = malloc(sizeof(Directory));
 
 	// Mark in freemap
-	unsigned link_start = freemap_find_freespace(1);
-	freemap_set(1,1, link_start);
-
-	unsigned dir_start = freemap_find_freespace(1);
-	freemap_set(1, 1, dir_start);
-
-	unsigned parent_start = freemap_find_freespace(1);
-	freemap_set(1, 1, parent_start);
+	long link_start = freemap_find_freespace(1, true);
+	long dir_start = freemap_find_freespace(1, true);
+	long parent_start = freemap_find_freespace(1, true);
 
 	// Fill out link data
 	strcpy(link->name, name);
@@ -79,19 +75,19 @@ unsigned dir_create(char *name, Directory *container){
 
 	// Fill out (..) data
 	strcpy(parent->name, "..");
-	parent->block_data = container->block_dir;
+	parent->block_data = container_ptr;
 	parent->block_next = -1;
 	parent->is_dir = 1;
 	
 	// Fill out directory data
 	strcpy(dir->name, name);
 	dir->block_start = parent_start;
-	dir->block_dir = dir_start;
 	
 	// Write to disk
 	LBAwrite(link, 1, link_start);
 	LBAwrite(parent, 1, parent_start);
 	LBAwrite(dir, 1, dir_start);
+
 
 	// free buffers
 	free(link);
@@ -99,7 +95,7 @@ unsigned dir_create(char *name, Directory *container){
 	free(dir);
 
 	// Append link to container end 
-	unsigned cnt_end_ptr = dir_find_end(container);
+	long cnt_end_ptr = dir_find_end(container_ptr);
 	Entry *cnt_end = malloc(BLOCKSIZE);
 
 	LBAread(cnt_end, 1, cnt_end_ptr);
@@ -114,13 +110,17 @@ unsigned dir_create(char *name, Directory *container){
 	return dir_start;
 }
 
-int dir_list(Directory *dir){
-	printf("Listing DIR %s\n", dir->name);
+int dir_list(long dir){
+	// Load directory associated with container ptr
+	Directory *d = malloc(BLOCKSIZE);
+	LBAread(d, 1, dir);
+
+	printf("Listing DIR %s:%d\n", d->name, dir);
 
 	Entry *iter = malloc(BLOCKSIZE);
 
 	// Load first dir & print it's name
-	LBAread(iter, 1, dir->block_start);
+	LBAread(iter, 1, d->block_start);
 	printf("- %s\n", iter->name);
 
 	// Continue loading dirs until end is reached
@@ -130,49 +130,48 @@ int dir_list(Directory *dir){
 	}
 
 	free(iter);
+	free(d);
 
 	return 0;
 }
 
-// Search for an Entry in a given dir, return NULL if doesnt exist
-unsigned dir_find_entry (char *name, Directory *dir){
+long dir_find_entry (char *name, long dir_ptr){
+	Directory *dir = dir_load(dir_ptr);
+
+	// Load first entry in dir
 	Entry *iter = malloc(BLOCKSIZE);
-
-	// Load first dir & print it's name
 	LBAread(iter, 1, dir->block_start);
-	unsigned ptr = dir->block_start;
+	long ptr = dir->block_start;
 
-	// Check if names match
-	if(strcmp(iter->name, name) == 0){
-		free(iter);
-		return ptr;
-	}
+	while(strcmp(iter->name, name) != 0){
+		if(iter->block_next == -1){
+			ptr = -1;
+			break;
+		}
 
-	// Continue loading dirs until end is reached
-	while(iter->block_next != -1){
+		// found match
+		if(strcmp(iter->name, name) == 0){
+			break;
+		}
+
 		ptr = iter->block_next;
 		LBAread(iter, 1, iter->block_next);
-
-		// Check if names match
-		if(strcmp(iter->name, name) == 0){
-			free(iter);
-			return ptr;
-		}
 	}
 
-	// Dir not found...
 	free(iter);
+	free(dir);
+
 	return ptr;
 }
 
-// Return final entry in directory
-unsigned dir_find_end(Directory *dir){
+// Return pointer to final entry in directory
+long dir_find_end(long dir_ptr){
+	Directory *dir = dir_load(dir_ptr);
+
+	// Load first entry in dir
 	Entry *iter = malloc(BLOCKSIZE);
-
-	// Load first dir & print it's name
 	LBAread(iter, 1, dir->block_start);
-
-	unsigned ptr = dir->block_start;
+	long ptr = dir->block_start;
 
 	// Continue loading dirs until end is reached
 	while(iter->block_next != -1){
@@ -182,7 +181,15 @@ unsigned dir_find_end(Directory *dir){
 
 	// return ptr to final entry
 	free(iter);
+	free(dir);
+
 	return ptr;
+}
+
+Directory *dir_load(long dir_ptr){
+	Directory *dir = malloc(BLOCKSIZE); 
+	LBAread(dir, 1, dir_ptr);
+	return dir;
 }
 
 // Create a blank filesystem 
@@ -197,7 +204,7 @@ int fs_create(){
 	freemap_set(1, 1, 0);
 
 	// Write root dir to disk (after freemap)
-	unsigned root_start = dir_create_root();
+	long root_start = dir_create_root();
 	printf("Wrote root dir at block %d\n", root_start);
 
 	// Create superblock (block 0)
@@ -224,8 +231,7 @@ int fs_load_globals(){
 	freemap_load(g_super->ptr_freemap, g_super->len_freemap);
 
 	// Allocate / Load cur_dir
-	g_cur_dir = malloc(BLOCKSIZE);
-	LBAread(g_cur_dir, 1, g_super->ptr_root);
+	g_cur_dir = g_super->ptr_root;
 }
 
 // Locate 'filename' and start filesystem off of it. Initialize the filesystem if necessary.
@@ -264,13 +270,12 @@ void fs_close(){
 
 	freemap_cleanup();
 	free(g_super);
-	free(g_cur_dir);
 }
 
 // Change the current directory
 int fs_change_dir (char *name){
 	// Find matching entry within current dir
-	unsigned target_ptr = dir_find_entry(name, g_cur_dir);
+	long target_ptr = dir_find_entry(name, g_cur_dir);
 
 	if(target_ptr == -1){
 		printf("Cannot cd to %s, directory not found\n", name);
@@ -286,12 +291,14 @@ int fs_change_dir (char *name){
 		return -1;
 	}
 
-	printf("Loading dir at %d\n", target->block_data);
-	LBAread(g_cur_dir, 1, target->block_data);
+	printf("cd to dir %s:%d\n", target->name, target_ptr);
+	g_cur_dir = target->block_data;
+
 	free(target);
+	return 0;
 }
 
 // Returns Directory object representing current dir (default: root)
-Directory *fs_get_cur_dir (){
+long fs_get_cur_dir (){
 	return g_cur_dir;
 }

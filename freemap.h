@@ -5,7 +5,7 @@
 void freemap_create();
 
 // Load freemap from disk
-void freemap_load(unsigned ptr_freemap, unsigned len_freemap);
+void freemap_load(long ptr_freemap, long len_freemap);
 
 // Save freemap to disk
 void freemap_save();
@@ -22,7 +22,9 @@ int freemap_get_len();
 // taken - set the target blocks to either 1 or 0
 // blk_len - how many blocks from the offset to modify at
 // blk_start - offset within the freemap to start modifying at
-void freemap_set(bool taken, unsigned blk_len, unsigned blk_start);
+void freemap_set(bool taken, long blk_len, long blk_start);
 
 // search the freemap for the first occurance of contiguous freespace, with length 'blk_len'
-unsigned freemap_find_freespace(unsigned blk_len);
+// blk_len - minimum length of free blocks in a row
+// auto_set - auto-run freemap_set on the newly found blocks
+long freemap_find_freespace(long blk_len, bool auto_set);

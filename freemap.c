@@ -16,7 +16,7 @@ void freemap_create(){
 	freemap_set(1, freemap_len, freemap_start);
 }
 
-void freemap_load(unsigned ptr_freemap, unsigned len_freemap){
+void freemap_load(long ptr_freemap, long len_freemap){
 	g_freemap = malloc(FREEMAPSIZE);
 	LBAread(g_freemap, len_freemap, ptr_freemap);
 }
@@ -27,7 +27,6 @@ void freemap_save(){
 }
 
 void freemap_cleanup(){
-	if(g_freemap == NULL) return;
 	free(g_freemap);
 	g_freemap = NULL;
 }
@@ -44,13 +43,13 @@ int freemap_get_len(){
 
 // Freemap modification / reading functions
 
-void freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
+void freemap_set(bool taken, long blk_len, long blk_start){
 	if(g_freemap == NULL){
 		printf("Error: Freemap has not been initialized yet!\n");
 		return;
 	}
 
-	unsigned blk_end = blk_start + blk_len;
+	long blk_end = blk_start + blk_len;
 
 	// Clamp values
 	if(blk_start < 0){
@@ -121,8 +120,8 @@ void freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
 
 // Find the first contiguous free space with atleast 'blk_len' blocks available.
 // If no free spaces are availabe, then return -1
-// If auto_modify is set to true, will automatically mark the free blocks as taken
-unsigned freemap_find_freespace(unsigned blk_len){
+// If auto_set is set to true, will automatically mark the free blocks as taken
+long freemap_find_freespace(long blk_len, bool auto_set){
 	if(g_freemap == NULL){
 		printf("Error: Freemap has not been initialized yet!\n");
 		return -1;
@@ -155,7 +154,15 @@ unsigned freemap_find_freespace(unsigned blk_len){
 			// Found 'blk_len' amount of contiguous free spaces! success
 			if(counter >= blk_len){
 				free(bits);
-				return (free_start_idx*8) + j - 1;
+
+				long result = (free_start_idx*8) + j - 1;
+
+				// Auto-set freemap
+				if(auto_set == true){
+					freemap_set(1, blk_len, result);
+				}
+
+				return result;
 			}
 		}
 
