@@ -17,8 +17,9 @@ Finder def_funcs[] = {
     {"cp_file", 2},//copy files DOESN'T WORK
     {"exit", 0},
     {"mv_file",2},//move files DOESN'T WORK
-    {"cdd",1},//creating dir
+    {"ccd",1},//creating dir
     {"ls",0},//list dir
+    {"cd",1}, 
     {"cpy_nf",2},//special command #1 copying a file to our file system
     {"wrt_nf",2}//special command #2 writing a file to our file system DOESN'T WORK
     
@@ -67,7 +68,23 @@ int lsh_parse_input(int argc, char **argv){
     if(strcmp(argv[0], "exit") == 0){
         return -1;
     }
+	
+    if(strcmp(argv[0], "ls") ==0){ 
+    	
+	dir_list(fs_get_cur_dir());  
+}
 
+  if(strcmp(argv[0], "cd") ==0){ 
+    	
+	//argv[1] takes the user's input and try to navigate
+        fs_change_dir (argv[1]);	
+}
+
+  if(strcmp(argv[0], "ccd") ==0){ 
+    	
+        
+ 	dir_create( argv[1] ,fs_get_cur_dir());	
+}
 
     return 0;
 }
