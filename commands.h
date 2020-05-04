@@ -43,7 +43,7 @@ long dir_create (char *name, long container_ptr);
 // src - block location of directory to modify
 // dest - block location of directory to move into
 // return - new block location of src directory
-long dir_move (long src, long dest);
+long dir_move (char *name, long container_ptr, long dest);
 
 // Delete a directory and all entries within it
 // name - name of directory to delete
@@ -56,7 +56,12 @@ int dir_rm(char *name, long container_ptr);
 // return - A malloc'd struct filled with the target directory's data
 Directory *dir_load (long dir_ptr);			
 
-// Remove a directory and all entries within it 
+// Load a pointer to a directory into a Entry struct
+// entry_ptr - block location of target directory 
+// return - A malloc'd struct filled with the target directory's data
+Entry *entry_load (long entry_ptr);			
+
+// List alll entries within a directory
 // dir_ptr - block location of target directory
 // return - 0 if success, -1 otherwise 
 int dir_list (long dir_ptr);
@@ -71,6 +76,16 @@ long dir_find_entry (char *name, long dir_ptr);
 // dir - block location of directory to iterate 
 // return - pointer to final element
 long dir_find_end (long dir);	
+
+// In reference to a container dir, advance into the next directory
+// dir - directory to start from
+// name - directory to advance into 
+// return - pointer to target dir 
+long dir_advance(char *name, long dir_ptr);
+
+// Return entry associated with a path
+// dir - starting dir. Where the path reference starts from
+long dir_resolve_path(char *path, long dir);
 
 // FILE functions
 

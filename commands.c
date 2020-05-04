@@ -110,12 +110,26 @@ long dir_create(char *name, long container_ptr){
 	return dir_start;
 }
 
-long dir_move(long src, long dest){
+long dir_move(char *name, long container_ptr, long dest_ptr){
+	/*/ Load directory associated with dest ptr
+	Directory *container = dir_load(container_ptr);
+	Directory *dest = dir_load(dest_ptr);
 
+	// Remove src dir from container
+
+	// Append src dir to dest end 
+	long dest_end_ptr = dir_find_end(dest_ptr);
+	Entry *dest_end = entry_load(dest_end_ptr);
+	
+	cnt_end->block_next = link_start;
+	LBAwrite(cnt_end, 1, cnt_end_ptr);
+
+	free(cnt_end);*/
+	return -1;
 }
 
 int dir_rm(char *name, long container_ptr){
-
+	return -1;
 }
 
 int dir_list(long dir_ptr){
@@ -200,6 +214,40 @@ Directory *dir_load(long dir_ptr){
 	return dir;
 }
 
+Entry *entry_load(long entry_ptr){
+	Entry *entry = malloc(BLOCKSIZE); 
+	LBAread(entry, 1, entry_ptr);
+	return entry;
+}
+
+long dir_resolve_path(char *path, long dir){
+	if(strlen(path) == 0){
+		return dir;
+	}
+
+	if(path[0] == '/'){
+		dir = g_super->ptr_root;
+	}
+
+	char *buffer = strdup(path);
+	char *split;
+
+	while((split = strsep(&buffer, "/")) != NULL) {
+		// Root
+		if(strlen(split) == 0){
+			continue;
+		}
+		printf("Advance to dir %s\n", split);
+		dir = dir_advance(split, dir);
+		if(dir < 0){
+			dir = -1;
+			break;
+		}
+	}
+
+	return dir;
+}
+
 void *file_read (char *name, long dir_ptr){
 
 }
@@ -220,30 +268,42 @@ int exfile_write (char *filepath, char *name, long dir_ptr){
 
 }
 
+
 // Change the current directory
 int fs_change_dir (char *name){
-	// Find matching entry within current dir
-	long target_ptr = dir_find_entry(name, g_cur_dir);
+	long new_dir = dir_advance(name, g_cur_dir);
+
+	if(new_dir == -1){
+		printf("Cannot change directory into %s, not found", name);
+		return -1;
+	}
+
+	if(new_dir == -2){
+		printf("Cannot change directory into %s, not a directory", name);
+		return -1;
+	}
+
+	g_cur_dir = new_dir;
+}
+
+long dir_advance(char *name, long dir_ptr){
+	long target_ptr = dir_find_entry(name, dir_ptr);
 
 	if(target_ptr == -1){
-		printf("Cannot cd to %s, directory not found\n", name);
 		return -1;
 	}
 
 	Entry *target = malloc(BLOCKSIZE);
 	LBAread(target, 1, target_ptr);
+	long result = target->block_data;
 
 	if(target->is_dir == 0){
-		printf("Cannot cd to %s, target is not a directory\n", target->name);
 		free(target);
-		return -1;
+		return -2;
 	}
 
-	printf("cd to dir %s:%d\n", target->name, target_ptr);
-	g_cur_dir = target->block_data;
-
 	free(target);
-	return 0;
+	return result;
 }
 
 // Returns Directory object representing current dir (default: root)
