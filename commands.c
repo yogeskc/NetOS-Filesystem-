@@ -249,23 +249,23 @@ unsigned dir_resolve_path(char *path, unsigned dir){
 }
 
 void *file_read (char *name, unsigned dir_ptr){
-
+    return 0;
 }
 
 int file_rm (char *name, unsigned dir_ptr){
-
+    return 0;
 }
 
 int file_move (char *name, unsigned src, unsigned dest){
-
+return 0;
 }
 
 int exfile_add (char *filepath, unsigned dir_ptr){
-
+return 0;
 }
 
 int exfile_write (char *filepath, char *name, unsigned dir_ptr){
-
+return 0;
 }
 
 
@@ -284,6 +284,7 @@ int fs_change_dir (char *name){
 	}
 
 	g_cur_dir = new_dir;
+    return 0;
 }
 
 unsigned dir_advance(char *name, unsigned dir_ptr){
@@ -351,6 +352,7 @@ int fs_load_globals(){
 
 	// Allocate / Load cur_dir
 	g_cur_dir = g_super->ptr_root;
+    return 0;
 }
 
 // Locate 'filename' and start filesystem off of it. Initialize the filesystem if necessary.

@@ -12,16 +12,18 @@
 
 // command data
 Finder def_funcs[] = {
-    {"add_file", 2},//add files 
-    {"rm_file", 1},//remove files DOESN'T WORK
-    {"cp_file", 2},//copy files DOESN'T WORK
-    {"exit", 0},
-    {"mv_file",2},//move files DOESN'T WORK
-    {"ccd",1},//creating dir
-    {"ls",0},//list dir
-    {"cd",1}, 
-    {"cpy_nf",2},//special command #1 copying a file to our file system
-    {"wrt_nf",2}//special command #2 writing a file to our file system DOESN'T WORK
+    {"add_file", 2, "add the files from.. "},
+    {"rm_file", 1, "remove files from.. "},
+    {"cp_file", 2, "copy files from.."},//copy files DOESN'T WORK
+    {"exit", 0, "EXIT"},
+    {"mv_file",2, "move the files from one directory to another"},//move files DOESN'T WORK
+    {"ccd",1, "Creating the directory"},//creating dir
+    {"ls",0, "Listing the directory"},//list dir
+    {"cd",1, "Change the directory"},
+    {"cpy_nf",2, "special command #1 copying a file to our file system"},
+    {"wrt_nf",2, "special command #2 writing a file to our file system"},
+    {"tree",0,}
+    {"help", 0, "Rescued Done. Hope it helps :)"}
     
 };
 
@@ -85,7 +87,15 @@ int lsh_parse_input(int argc, char **argv){
         
  	dir_create( argv[1] ,fs_get_cur_dir());	
 }
-
+    if(strcmp(argv[0], "help") ==0){
+        printf("Rescue COMING..\n");
+            for(int i = 0; i < sizeof(def_funcs) / sizeof(def_funcs[0]); i++){
+                printf("[%s]: %s\n", def_funcs[i].cmd_id,def_funcs[i].description);
+            }
+            
+       
+    }
+    
     return 0;
 }
 
