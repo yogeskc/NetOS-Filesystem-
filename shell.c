@@ -51,7 +51,7 @@ Finder def_funcs[] = {
 		"\targ1 - path to external file to be read"
 	},
     {
-		"!exfile_write", 2, "Write out internal file into external filesystem",
+		"exfile_write", 2, "Write out internal file into external filesystem",
 		"\targ1 - path to internal file to be read\n\targ2 - path to external file to be written out to"
 	},
     {

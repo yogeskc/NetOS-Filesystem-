@@ -259,6 +259,14 @@ Entry *entry_load(unsigned entry_ptr){
 	return entry;
 }
 
+void *entry_load_data(Entry *e){
+	unsigned req_blocks = get_required_blocks(e->size);
+	void *data = malloc(BLOCKSIZE * req_blocks);
+	LBAread(data, req_blocks, e->block_data);
+	printf("Data size %d, loading %d data blocks\n", e->size, req_blocks);
+	return data;
+}
+
 int entry_chain_append(unsigned container_ptr, unsigned entry_ptr){
 	unsigned dir_end_ptr = dir_find_end(container_ptr);
 	if(dir_end_ptr == -1){
@@ -317,7 +325,28 @@ unsigned resolve_path(char *path, unsigned dir, bool before){
 		}
 		printf("Advance to dir %s\n", split);
 		last_dir = dir;
-		dir = dir_advance(split, dir);
+		// dir = dir_advance(split, dir);
+		
+		// dir advance
+		unsigned target_ptr = dir_find_entry(split, dir, false);
+		if(target_ptr == -1){
+			return -1;
+		}
+
+		Entry *target = malloc(BLOCKSIZE);
+		LBAread(target, 1, target_ptr);
+		unsigned result = target->block_data;
+
+		// found the matching entry, cannot advance anymore
+		if(target->is_dir == 0){
+			dir = target_ptr;
+			free(target);
+			break;
+		}
+
+		free(target);
+		dir = result;
+
 		if(dir < 0){
 			dir = -1;
 			break;
@@ -326,26 +355,6 @@ unsigned resolve_path(char *path, unsigned dir, bool before){
 
 	if(before == true) return last_dir;
 	return dir;
-}
-
-unsigned dir_advance(char *name, unsigned dir_ptr){
-	unsigned target_ptr = dir_find_entry(name, dir_ptr, false);
-
-	if(target_ptr == -1){
-		return -1;
-	}
-
-	Entry *target = malloc(BLOCKSIZE);
-	LBAread(target, 1, target_ptr);
-	unsigned result = target->block_data;
-
-	if(target->is_dir == 0){
-		free(target);
-		return -2;
-	}
-
-	free(target);
-	return result;
 }
 
 void *file_read (char *path, unsigned container_ptr){
@@ -381,6 +390,7 @@ int exfile_add (char *path_ext, unsigned container_ptr){
 	}
 
 	unsigned data_size = get_file_size(path_ext);
+	printf("data_size : %d\n", data_size);
 
 	// Find freespace for data
 	unsigned data_blocks = get_required_blocks(data_size);
@@ -415,9 +425,36 @@ int exfile_add (char *path_ext, unsigned container_ptr){
 	return 0;
 }
 
+
 int exfile_write (char *path_ext, char *path_int, unsigned container_ptr){
 	// resolve path to file entry
-	// linux fs - write out filepath
+	unsigned entry_ptr = resolve_path(path_int, container_ptr, false);
+
+	if(entry_ptr == -1){
+		printf("Error: %s does not exist\n", path_int);
+		return -1;
+	}
+
+	Entry *entry = entry_load(entry_ptr);
+	printf("Resolved to entry %s:%d\n", entry->name, entry_ptr);
+
+	// Check if file
+	if(entry->is_dir == 1){
+		printf("Error: %s is a directory!\n", path_int);
+		return -1;
+	}
+
+	// Load associated data
+	void *data = entry_load_data(entry);
+
+	printf("%d\n", entry->size);
+
+	// Write raw data to path_ext
+	write_file_data(path_ext, data, entry->size);
+
+	// free memory
+	free(data);
+	free(entry);
 
 	return 0;
 }

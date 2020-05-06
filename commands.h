@@ -12,7 +12,7 @@ typedef struct {
 typedef struct {
 	unsigned block_data; 	// ptr to data / directory start block
 	unsigned block_next;	// ptr to next entry in directory
-	unsigned short size; 	// size (bytes) of the associated file / dir
+	unsigned size; 			// size (bytes) of the associated file / dir
 	char name[256];
 	int is_dir;
 	Nugget info;

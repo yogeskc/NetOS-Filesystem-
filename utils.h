@@ -9,6 +9,7 @@ typedef enum { false, true } bool;
 
 unsigned get_required_blocks(unsigned size);
 void *get_file_data(char *path);
+int write_file_data(char *path, void *data, unsigned size);
 char **get_args(char *input, int *argc);
 unsigned get_file_size(char *path);
 char bits2byte(int bits[8]);

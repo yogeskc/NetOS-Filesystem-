@@ -66,6 +66,24 @@ void *get_file_data(char *path) {
     return data;
 }
 
+int write_file_data(char *path, void *data, unsigned size){
+	FILE *buffer;
+
+	buffer = fopen( path, "w");
+
+    // Check for error opening buffer
+    if(!buffer) {
+        printf("Error opening file '%s'\n", path);
+        return -1;
+    }
+
+	fwrite(data, size, 1, buffer);
+	fclose(buffer);
+
+	printf("Write out file %s\n", path);
+	return -0;
+}
+
 
 // Return number of args within a given string
 int get_arg_count(char *input){
