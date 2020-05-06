@@ -157,6 +157,45 @@ int dir_list(unsigned dir_ptr){
 	return 0;
 }
 
+int dir_tree(unsigned dir_ptr, int level){
+	// Load directory associated with container ptr
+	Directory *dir = malloc(BLOCKSIZE);
+	LBAread(dir, 1, dir_ptr);
+
+	for(int i = 0; i < level; i++)
+		printf("|_");
+
+	printf("%s:%d\n", dir->name, dir_ptr);
+
+	Entry *iter = malloc(BLOCKSIZE);
+
+	// Load first dir & print it's name
+	LBAread(iter, 1, dir->block_start);
+
+	// Continue loading dirs until end is reached
+	while(iter->block_next != -1){
+		unsigned ptr = iter->block_next;
+		LBAread(iter, 1, iter->block_next);
+
+		if(strcmp(iter->name, "..") == 0){
+			continue;
+		}
+
+		// Recursive print dir or just print entry name
+		if(iter->is_dir == 1){
+			//printf("recurse %s\n", iter->name);
+			dir_tree(iter->block_data, level+1);
+		}else{
+			printf("file %s\n", iter->name);
+		}
+	}
+
+	free(iter);
+	free(dir);
+
+	return 0;
+}
+
 unsigned dir_find_entry (char *name, unsigned dir_ptr){
 	Directory *dir = dir_load(dir_ptr);
 

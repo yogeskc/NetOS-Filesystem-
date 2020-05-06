@@ -65,6 +65,7 @@ Entry *entry_load (unsigned entry_ptr);
 // dir_ptr - block location of target directory
 // return - 0 if success, -1 otherwise 
 int dir_list (unsigned dir_ptr);
+int dir_tree (unsigned dir_ptr, int level);
 
 // Search a directory for a given entry matching "name"
 // name - string to search for

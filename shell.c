@@ -22,7 +22,7 @@ Finder def_funcs[] = {
     {"cd",1, "Change the directory"},
     {"cpy_nf",2, "special command #1 copying a file to our file system"},
     {"wrt_nf",2, "special command #2 writing a file to our file system"},
-    {"tree",0,}
+    {"tree",0, "print out directories in tree format"},
     {"help", 0, "Rescued Done. Hope it helps :)"}
     
 };
@@ -95,6 +95,10 @@ int lsh_parse_input(int argc, char **argv){
             
        
     }
+
+    if(strcmp(argv[0], "tree") ==0){
+		dir_tree(fs_get_cur_dir(), 0 );
+	}
     
     return 0;
 }
