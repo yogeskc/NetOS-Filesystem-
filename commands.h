@@ -38,12 +38,13 @@ typedef struct{
 // dir_ptr - block location of container directory
 // return - new block location of created directory
 unsigned dir_create (char *name, unsigned container_ptr);	
+unsigned dir_create_root ();	
 
 // Move a directory into another
 // src - block location of directory to modify
 // dest - block location of directory to move into
 // return - new block location of src directory
-unsigned dir_move (char *name, unsigned container_ptr, unsigned dest);
+unsigned dir_move (char *name_src, char *path_dest, unsigned container_ptr);
 
 // Delete a directory and all entries within it
 // name - name of directory to delete
@@ -71,7 +72,7 @@ int dir_tree (unsigned dir_ptr, int level);
 // name - string to search for
 // dir - block location of directory to search
 // return - pointer to search result, -1 if doesn't exist
-unsigned dir_find_entry (char *name, unsigned dir_ptr);	
+unsigned dir_find_entry (char *name, unsigned dir_ptr, bool before);	
 
 // Follow the chain of entries within a directory until the end is reached
 // dir - block location of directory to iterate 
@@ -86,7 +87,7 @@ unsigned dir_advance(char *name, unsigned dir_ptr);
 
 // Return entry associated with a path
 // dir - starting dir. Where the path reference starts from
-unsigned dir_resolve_path(char *path, unsigned dir);
+unsigned resolve_path(char *path, unsigned dir, bool before);
 
 // FILE functions
 
@@ -110,21 +111,21 @@ int file_move (char *name, unsigned src, unsigned dest);
 // filepath - path to file in regular filesystem
 // dir - block location of directory to copy into
 // return - 0 on success, -1 otherwise
-int exfile_add (char *filepath, unsigned dir);
+int exfile_add (char *path_ext, unsigned dir);
 
 // Search for an internal file within a given directory, then write it out to the external filesystem
 // filepath - Path to where the internal file will be placed in the external filesystem
 // name - name of file to copy out
 // dir - block location of directory to search 
 // return - 0 on success, -1 otherwise
-int exfile_write (char *filepath, char *name, unsigned dir);
+int exfile_write (char *path_ext, char *path_int, unsigned dir);
 
 // NAVIGATION functions
 
-// Search for matching name within current directory, then move into that directory
+// Resolve the input path, then move into that directory
 // name - directory to search for
 // return - 0 on success, -1 otherwise
-int fs_change_dir (char *name);		
+int fs_change_dir (char *path);		
 
 // Returns block location of current directory (default: root)
 unsigned fs_get_cur_dir ();

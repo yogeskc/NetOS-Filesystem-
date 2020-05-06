@@ -1,14 +1,13 @@
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h> 
 #include <string.h>
+#include <libgen.h>
 
 #include "commands.h"
 #include "freemap.h"
 #include "low.h"
 #include "utils.h"
 
-// Global fs vars
 Superblock *g_super = NULL;
 unsigned g_cur_dir = -1;
 
@@ -47,8 +46,8 @@ unsigned dir_create_root(){
 
 unsigned dir_create(char *name, unsigned container_ptr){
 	// check if dir already exists
-	if(dir_find_entry (name, container_ptr) != -1){
-		printf("Directory %s already exists!\n", name);
+	if(dir_find_entry (name, container_ptr, false) != -1){
+		printf("Entry %s already exists!\n", name);
 		return -1;
 	}
 
@@ -110,25 +109,22 @@ unsigned dir_create(char *name, unsigned container_ptr){
 	return dir_start;
 }
 
-unsigned dir_move(char *name, unsigned container_ptr, unsigned dest_ptr){
-	/*/ Load directory associated with dest ptr
-	Directory *container = dir_load(container_ptr);
-	Directory *dest = dir_load(dest_ptr);
-
-	// Remove src dir from container
-
-	// Append src dir to dest end 
-	unsigned dest_end_ptr = dir_find_end(dest_ptr);
-	Entry *dest_end = entry_load(dest_end_ptr);
+unsigned dir_move(char *path_src, char *path_dest, unsigned container_ptr){
+	// find directory containing entry
+	// find entry itself
+	// remove entry from container chain
+	// append entry to destination chain
 	
-	cnt_end->block_next = link_start;
-	LBAwrite(cnt_end, 1, cnt_end_ptr);
-
-	free(cnt_end);*/
 	return -1;
 }
 
-int dir_rm(char *name, unsigned container_ptr){
+int dir_rm(char *path_src, unsigned container_ptr){
+	// find directory containing entry 
+	// find entry itself
+	// remove entry from container chain
+	// recursive remove files and directories within
+	// mark as free
+	
 	return -1;
 }
 
@@ -165,7 +161,7 @@ int dir_tree(unsigned dir_ptr, int level){
 	for(int i = 0; i < level; i++)
 		printf("|_");
 
-	printf("%s:%d\n", dir->name, dir_ptr);
+	printf("%s/\n", dir->name, dir_ptr);
 
 	Entry *iter = malloc(BLOCKSIZE);
 
@@ -183,10 +179,11 @@ int dir_tree(unsigned dir_ptr, int level){
 
 		// Recursive print dir or just print entry name
 		if(iter->is_dir == 1){
-			//printf("recurse %s\n", iter->name);
 			dir_tree(iter->block_data, level+1);
 		}else{
-			printf("file %s\n", iter->name);
+			for(int i = 0; i < level+1; i++)
+				printf("|_");
+			printf("%s\n", iter->name, iter->block_data);
 		}
 	}
 
@@ -196,13 +193,14 @@ int dir_tree(unsigned dir_ptr, int level){
 	return 0;
 }
 
-unsigned dir_find_entry (char *name, unsigned dir_ptr){
+unsigned dir_find_entry (char *name, unsigned dir_ptr, bool before){
 	Directory *dir = dir_load(dir_ptr);
 
 	// Load first entry in dir
 	Entry *iter = malloc(BLOCKSIZE);
 	LBAread(iter, 1, dir->block_start);
 	unsigned ptr = dir->block_start;
+	unsigned ptr_last = -1;
 
 	while(strcmp(iter->name, name) != 0){
 		if(iter->block_next == -1){
@@ -215,6 +213,7 @@ unsigned dir_find_entry (char *name, unsigned dir_ptr){
 			break;
 		}
 
+		ptr_last = ptr;
 		ptr = iter->block_next;
 		LBAread(iter, 1, iter->block_next);
 	}
@@ -222,6 +221,7 @@ unsigned dir_find_entry (char *name, unsigned dir_ptr){
 	free(iter);
 	free(dir);
 
+	if(before) return ptr_last;
 	return ptr;
 }
 
@@ -259,7 +259,45 @@ Entry *entry_load(unsigned entry_ptr){
 	return entry;
 }
 
-unsigned dir_resolve_path(char *path, unsigned dir){
+int entry_chain_append(unsigned container_ptr, unsigned entry_ptr){
+	unsigned dir_end_ptr = dir_find_end(container_ptr);
+	if(dir_end_ptr == -1){
+		return -1;
+	}
+
+	Entry *dir_end = entry_load(dir_end_ptr);
+	
+	printf("Appending entry to %s\n", dir_end->name);
+
+	dir_end->block_next = entry_ptr;
+	LBAwrite(dir_end, 1, dir_end_ptr);
+
+	printf("%s block next = %d\n", dir_end->name, entry_ptr);
+
+	free(dir_end);
+
+	return 0;
+}
+
+int entry_chain_remove(char *name, unsigned container_ptr){
+	unsigned mod_ptr = dir_find_entry(name, container_ptr, true);
+	unsigned rm_ptr = dir_find_entry(name, container_ptr, false);
+
+	if(mod_ptr == -1 || rm_ptr == -1) return -1;
+
+	Entry *mod = entry_load(mod_ptr);
+	Entry *rm = entry_load(rm_ptr);
+
+	mod->block_next = rm->block_next;
+	LBAwrite(mod, 1, mod_ptr);
+
+	free(mod);
+	free(rm);
+
+	return 0;
+}
+
+unsigned resolve_path(char *path, unsigned dir, bool before){
 	if(strlen(path) == 0){
 		return dir;
 	}
@@ -270,6 +308,7 @@ unsigned dir_resolve_path(char *path, unsigned dir){
 
 	char *buffer = strdup(path);
 	char *split;
+	unsigned last_dir = dir;
 
 	while((split = strsep(&buffer, "/")) != NULL) {
 		// Root
@@ -277,6 +316,7 @@ unsigned dir_resolve_path(char *path, unsigned dir){
 			continue;
 		}
 		printf("Advance to dir %s\n", split);
+		last_dir = dir;
 		dir = dir_advance(split, dir);
 		if(dir < 0){
 			dir = -1;
@@ -284,50 +324,12 @@ unsigned dir_resolve_path(char *path, unsigned dir){
 		}
 	}
 
+	if(before == true) return last_dir;
 	return dir;
 }
 
-void *file_read (char *name, unsigned dir_ptr){
-    return 0;
-}
-
-int file_rm (char *name, unsigned dir_ptr){
-    return 0;
-}
-
-int file_move (char *name, unsigned src, unsigned dest){
-return 0;
-}
-
-int exfile_add (char *filepath, unsigned dir_ptr){
-return 0;
-}
-
-int exfile_write (char *filepath, char *name, unsigned dir_ptr){
-return 0;
-}
-
-
-// Change the current directory
-int fs_change_dir (char *name){
-	unsigned new_dir = dir_advance(name, g_cur_dir);
-
-	if(new_dir == -1){
-		printf("Cannot change directory into %s, not found", name);
-		return -1;
-	}
-
-	if(new_dir == -2){
-		printf("Cannot change directory into %s, not a directory", name);
-		return -1;
-	}
-
-	g_cur_dir = new_dir;
-    return 0;
-}
-
 unsigned dir_advance(char *name, unsigned dir_ptr){
-	unsigned target_ptr = dir_find_entry(name, dir_ptr);
+	unsigned target_ptr = dir_find_entry(name, dir_ptr, false);
 
 	if(target_ptr == -1){
 		return -1;
@@ -344,6 +346,98 @@ unsigned dir_advance(char *name, unsigned dir_ptr){
 
 	free(target);
 	return result;
+}
+
+void *file_read (char *path, unsigned container_ptr){
+	// resolve path to entry
+	// return data associated with file
+    return 0;
+}
+
+int file_rm (char *path, unsigned container_ptr){
+	// resolve path to entry
+	// resolve path to container dir 
+	// remove entry from container chain
+	// mark entry and associated data as free
+	
+    return 0;
+}
+
+int file_move (char *name, unsigned src, unsigned dest){
+	// resolve path to entry
+	// resolve path to container dir 
+	// remove entry from container chain
+	// append entry to dest chain
+	
+	return 0;
+}
+
+int exfile_add (char *path_ext, unsigned container_ptr){
+	void *data = get_file_data(path_ext);
+
+	if(data == NULL){
+		printf("Could not load file %s\n", path_ext);
+		return -1;
+	}
+
+	unsigned data_size = get_file_size(path_ext);
+
+	// Find freespace for data
+	unsigned data_blocks = get_required_blocks(data_size);
+	printf("%d - required blocks\n", data_blocks);
+	unsigned data_ptr = freemap_find_freespace(data_blocks, true);
+	if(data_ptr == -1){
+		printf("Could not find %d free blocks!\n", data_blocks);
+		return -1;
+	}
+
+	// Find freespace for entry
+	unsigned entry_ptr = freemap_find_freespace(1, true);
+
+	// Create new entry and point it to data
+	Entry *entry = malloc(sizeof(Entry));
+	strcpy(entry->name, basename(path_ext));
+	entry->block_data = data_ptr;
+	entry->block_next = -1;
+	entry->size = data_size;
+	entry->is_dir = 0;
+
+	// append to entry chain
+	entry_chain_append(container_ptr, entry_ptr);
+
+	printf("Creating new entry %s:%d\n", entry->name, entry_ptr);
+	printf("Creating data %d->%d\n", data_ptr, data_blocks);
+
+	// write to disk
+	LBAwrite(data, data_blocks, data_ptr);
+	LBAwrite(entry, 1, entry_ptr);
+	
+	return 0;
+}
+
+int exfile_write (char *path_ext, char *path_int, unsigned container_ptr){
+	// resolve path to file entry
+	// linux fs - write out filepath
+
+	return 0;
+}
+
+// Change the current directory
+int fs_change_dir (char *path){
+	unsigned new_dir = resolve_path(path, g_cur_dir, false);
+
+	if(new_dir == -1){
+		printf("Cannot change directory into %s, not found", path);
+		return -1;
+	}
+
+	if(new_dir == -2){
+		printf("Cannot change directory into %s, not a directory", path);
+		return -1;
+	}
+
+	g_cur_dir = new_dir;
+    return 0;
 }
 
 // Returns Directory object representing current dir (default: root)

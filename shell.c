@@ -12,19 +12,55 @@
 
 // command data
 Finder def_funcs[] = {
-    {"add_file", 2, "add the files from.. "},
-    {"rm_file", 1, "remove files from.. "},
-    {"cp_file", 2, "copy files from.."},//copy files DOESN'T WORK
-    {"exit", 0, "EXIT"},
-    {"mv_file",2, "move the files from one directory to another"},//move files DOESN'T WORK
-    {"ccd",1, "Creating the directory"},//creating dir
-    {"ls",0, "Listing the directory"},//list dir
-    {"cd",1, "Change the directory"},
-    {"cpy_nf",2, "special command #1 copying a file to our file system"},
-    {"wrt_nf",2, "special command #2 writing a file to our file system"},
-    {"tree",0, "print out directories in tree format"},
-    {"help", 0, "Rescued Done. Hope it helps :)"}
-    
+    {
+		"rm_file", 1, 
+		"Delete a target file from the filesystem",
+		"\targ1 - path to target file (to be deleted)"
+	},
+	{
+		"cp_file", 2, 
+		"copy a target file into another directory",
+		"\targ1 - path to target file (to be copied)\n\targ2 - path to destination directory"
+	},
+    {
+		"exit", 0, 
+		"Quit netFS application"
+	},
+    {
+		"mv_file", 2, 
+		"move the files from one directory to another",
+		"\targ1 - path to target directory (to be moved)\n\targ2 - path to destination directory"
+	},
+    {
+		"ccd", 1, 
+		"Creates a new directory within your current folder",
+		"\targ1 - directory name"
+	},
+    {
+		"ls", 0, 
+		"Lists content of current folder"
+	},
+    {
+		"cd", 1, 
+		"Change the directory to a given location",
+		"\targ1 - path to target directory"
+	},
+    {
+		"exfile_add", 1, 
+		"Add external file into netFS filesystem. File is placed in current directory",
+		"\targ1 - path to external file to be read"
+	},
+    {
+		"exfile_write", 2, "Write out internal file into external filesystem",
+		"\targ1 - path to internal file to be read\n\targ2 - path to external file to be written out to"
+	},
+    {
+		"tree", 0, 
+		"print out directories in tree format",
+	},
+    {
+		"help", 0, "Rescued Done. Hope it helps :)"
+	}
 };
 
 #define LSH_RL_BUFSIZE 1024
@@ -88,9 +124,16 @@ int lsh_parse_input(int argc, char **argv){
  	dir_create( argv[1] ,fs_get_cur_dir());	
 }
     if(strcmp(argv[0], "help") ==0){
-        printf("Rescue COMING..\n");
+        printf("Rescue COMING..\n\n");
             for(int i = 0; i < sizeof(def_funcs) / sizeof(def_funcs[0]); i++){
-                printf("[%s]: %s\n", def_funcs[i].cmd_id,def_funcs[i].description);
+                printf("[%s]: ", def_funcs[i].cmd_id);
+                printf("%s\n", def_funcs[i].description);
+				if(def_funcs[i].min_args <= 0){
+					printf("\targs: none\n");
+				}else{
+					printf("%s\n", def_funcs[i].arg_description);
+				}
+				printf("\n");
             }
             
        
@@ -98,6 +141,14 @@ int lsh_parse_input(int argc, char **argv){
 
     if(strcmp(argv[0], "tree") ==0){
 		dir_tree(fs_get_cur_dir(), 0 );
+	}
+
+	if(strcmp(argv[0], "exfile_add") == 0){
+		exfile_add(argv[1], fs_get_cur_dir());
+	}
+
+	if(strcmp(argv[0], "exfile_write") == 0){
+		exfile_write(argv[1], argv[2], fs_get_cur_dir());
 	}
     
     return 0;
@@ -184,6 +235,8 @@ void lsh_loop(void)
 {
     char *line;
     int status;
+
+	printf("Type 'help' to print a list of commands\n");
 
     do {
         printf("> ");
