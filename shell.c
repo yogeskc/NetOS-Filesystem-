@@ -13,12 +13,12 @@
 // command data
 Finder def_funcs[] = {
     {
-		"rm_file", 1, 
+		"!rm_file", 1, 
 		"Delete a target file from the filesystem",
 		"\targ1 - path to target file (to be deleted)"
 	},
 	{
-		"cp_file", 2, 
+		"!cp_file", 2, 
 		"copy a target file into another directory",
 		"\targ1 - path to target file (to be copied)\n\targ2 - path to destination directory"
 	},
@@ -27,7 +27,7 @@ Finder def_funcs[] = {
 		"Quit netFS application"
 	},
     {
-		"mv_file", 2, 
+		"!mv_file", 2, 
 		"move the files from one directory to another",
 		"\targ1 - path to target directory (to be moved)\n\targ2 - path to destination directory"
 	},
@@ -51,7 +51,7 @@ Finder def_funcs[] = {
 		"\targ1 - path to external file to be read"
 	},
     {
-		"exfile_write", 2, "Write out internal file into external filesystem",
+		"!exfile_write", 2, "Write out internal file into external filesystem",
 		"\targ1 - path to internal file to be read\n\targ2 - path to external file to be written out to"
 	},
     {

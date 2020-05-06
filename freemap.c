@@ -43,10 +43,10 @@ int freemap_get_len(){
 
 // Freemap modification / reading functions
 
-void freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
+int freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
 	if(g_freemap == NULL){
 		printf("Error: Freemap has not been initialized yet!\n");
-		return;
+		return -1;
 	}
 
 	unsigned blk_end = blk_start + blk_len;
@@ -55,8 +55,9 @@ void freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
 	if(blk_start < 0){
 		blk_start = 0;
 	}
-	if(blk_end > FREEMAPSIZE){
-		blk_end = FREEMAPSIZE;
+	if(blk_end > BLOCKCOUNT){
+		printf("out of range!\n");
+		return -1;
 	}
 
 	// Calculate indexes within the freemap to modify
@@ -116,6 +117,8 @@ void freemap_set(bool taken, unsigned blk_len, unsigned blk_start){
 		if((int) taken == 0)
 			*p = *p & m;
 	}
+
+	return 0;
 }
 
 // Find the first contiguous free space with atleast 'blk_len' blocks available.
