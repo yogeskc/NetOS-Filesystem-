@@ -10,16 +10,16 @@
 
 // Global fs vars
 Superblock *g_super = NULL;
-long g_cur_dir = -1;
+unsigned g_cur_dir = -1;
 
-long dir_create_root(){	
+unsigned dir_create_root(){	
 	// Allocate root directory and (..) entry
 	Directory *root = malloc(sizeof(Directory));
 	Entry *parent = malloc(sizeof(Entry));
 
 	// Mark in freemap
-	long root_start = freemap_find_freespace(1, true);
-	long parent_start = freemap_find_freespace(1, true);
+	unsigned root_start = freemap_find_freespace(1, true);
+	unsigned parent_start = freemap_find_freespace(1, true);
 
 	// Fill out root data
 	strcpy(root->name, "root");
@@ -45,7 +45,7 @@ long dir_create_root(){
 	return root_start;
 }
 
-long dir_create(char *name, long container_ptr){
+unsigned dir_create(char *name, unsigned container_ptr){
 	// check if dir already exists
 	if(dir_find_entry (name, container_ptr) != -1){
 		printf("Directory %s already exists!\n", name);
@@ -58,9 +58,9 @@ long dir_create(char *name, long container_ptr){
 	Directory *dir = malloc(sizeof(Directory));
 
 	// Mark in freemap
-	long link_start = freemap_find_freespace(1, true);
-	long dir_start = freemap_find_freespace(1, true);
-	long parent_start = freemap_find_freespace(1, true);
+	unsigned link_start = freemap_find_freespace(1, true);
+	unsigned dir_start = freemap_find_freespace(1, true);
+	unsigned parent_start = freemap_find_freespace(1, true);
 
 	// Fill out link data
 	strcpy(link->name, name);
@@ -95,7 +95,7 @@ long dir_create(char *name, long container_ptr){
 	free(container);
 
 	// Append link to container end 
-	long cnt_end_ptr = dir_find_end(container_ptr);
+	unsigned cnt_end_ptr = dir_find_end(container_ptr);
 	Entry *cnt_end = malloc(BLOCKSIZE);
 
 	LBAread(cnt_end, 1, cnt_end_ptr);
@@ -110,7 +110,7 @@ long dir_create(char *name, long container_ptr){
 	return dir_start;
 }
 
-long dir_move(char *name, long container_ptr, long dest_ptr){
+unsigned dir_move(char *name, unsigned container_ptr, unsigned dest_ptr){
 	/*/ Load directory associated with dest ptr
 	Directory *container = dir_load(container_ptr);
 	Directory *dest = dir_load(dest_ptr);
@@ -118,7 +118,7 @@ long dir_move(char *name, long container_ptr, long dest_ptr){
 	// Remove src dir from container
 
 	// Append src dir to dest end 
-	long dest_end_ptr = dir_find_end(dest_ptr);
+	unsigned dest_end_ptr = dir_find_end(dest_ptr);
 	Entry *dest_end = entry_load(dest_end_ptr);
 	
 	cnt_end->block_next = link_start;
@@ -128,11 +128,11 @@ long dir_move(char *name, long container_ptr, long dest_ptr){
 	return -1;
 }
 
-int dir_rm(char *name, long container_ptr){
+int dir_rm(char *name, unsigned container_ptr){
 	return -1;
 }
 
-int dir_list(long dir_ptr){
+int dir_list(unsigned dir_ptr){
 	// Load directory associated with container ptr
 	Directory *dir = malloc(BLOCKSIZE);
 	LBAread(dir, 1, dir_ptr);
@@ -157,13 +157,13 @@ int dir_list(long dir_ptr){
 	return 0;
 }
 
-long dir_find_entry (char *name, long dir_ptr){
+unsigned dir_find_entry (char *name, unsigned dir_ptr){
 	Directory *dir = dir_load(dir_ptr);
 
 	// Load first entry in dir
 	Entry *iter = malloc(BLOCKSIZE);
 	LBAread(iter, 1, dir->block_start);
-	long ptr = dir->block_start;
+	unsigned ptr = dir->block_start;
 
 	while(strcmp(iter->name, name) != 0){
 		if(iter->block_next == -1){
@@ -187,13 +187,13 @@ long dir_find_entry (char *name, long dir_ptr){
 }
 
 // Return pointer to final entry in directory
-long dir_find_end(long dir_ptr){
+unsigned dir_find_end(unsigned dir_ptr){
 	Directory *dir = dir_load(dir_ptr);
 
 	// Load first entry in dir
 	Entry *iter = malloc(BLOCKSIZE);
 	LBAread(iter, 1, dir->block_start);
-	long ptr = dir->block_start;
+	unsigned ptr = dir->block_start;
 
 	// Continue loading dirs until end is reached
 	while(iter->block_next != -1){
@@ -208,19 +208,19 @@ long dir_find_end(long dir_ptr){
 	return ptr;
 }
 
-Directory *dir_load(long dir_ptr){
+Directory *dir_load(unsigned dir_ptr){
 	Directory *dir = malloc(BLOCKSIZE); 
 	LBAread(dir, 1, dir_ptr);
 	return dir;
 }
 
-Entry *entry_load(long entry_ptr){
+Entry *entry_load(unsigned entry_ptr){
 	Entry *entry = malloc(BLOCKSIZE); 
 	LBAread(entry, 1, entry_ptr);
 	return entry;
 }
 
-long dir_resolve_path(char *path, long dir){
+unsigned dir_resolve_path(char *path, unsigned dir){
 	if(strlen(path) == 0){
 		return dir;
 	}
@@ -248,30 +248,30 @@ long dir_resolve_path(char *path, long dir){
 	return dir;
 }
 
-void *file_read (char *name, long dir_ptr){
+void *file_read (char *name, unsigned dir_ptr){
 
 }
 
-int file_rm (char *name, long dir_ptr){
+int file_rm (char *name, unsigned dir_ptr){
 
 }
 
-int file_move (char *name, long src, long dest){
+int file_move (char *name, unsigned src, unsigned dest){
 
 }
 
-int exfile_add (char *filepath, long dir_ptr){
+int exfile_add (char *filepath, unsigned dir_ptr){
 
 }
 
-int exfile_write (char *filepath, char *name, long dir_ptr){
+int exfile_write (char *filepath, char *name, unsigned dir_ptr){
 
 }
 
 
 // Change the current directory
 int fs_change_dir (char *name){
-	long new_dir = dir_advance(name, g_cur_dir);
+	unsigned new_dir = dir_advance(name, g_cur_dir);
 
 	if(new_dir == -1){
 		printf("Cannot change directory into %s, not found", name);
@@ -286,8 +286,8 @@ int fs_change_dir (char *name){
 	g_cur_dir = new_dir;
 }
 
-long dir_advance(char *name, long dir_ptr){
-	long target_ptr = dir_find_entry(name, dir_ptr);
+unsigned dir_advance(char *name, unsigned dir_ptr){
+	unsigned target_ptr = dir_find_entry(name, dir_ptr);
 
 	if(target_ptr == -1){
 		return -1;
@@ -295,7 +295,7 @@ long dir_advance(char *name, long dir_ptr){
 
 	Entry *target = malloc(BLOCKSIZE);
 	LBAread(target, 1, target_ptr);
-	long result = target->block_data;
+	unsigned result = target->block_data;
 
 	if(target->is_dir == 0){
 		free(target);
@@ -307,7 +307,7 @@ long dir_advance(char *name, long dir_ptr){
 }
 
 // Returns Directory object representing current dir (default: root)
-long fs_get_cur_dir (){
+unsigned fs_get_cur_dir (){
 	return g_cur_dir;
 }
 
@@ -323,7 +323,7 @@ int fs_create(){
 	freemap_set(1, 1, 0);
 
 	// Write root dir to disk (after freemap)
-	long root_start = dir_create_root();
+	unsigned root_start = dir_create_root();
 	printf("Wrote root dir at block %d\n", root_start);
 
 	// Create superblock (block 0)
