@@ -62,6 +62,9 @@ Directory *dir_load (unsigned dir_ptr);
 // return - A malloc'd struct filled with the target directory's data
 Entry *entry_load (unsigned entry_ptr);			
 
+// Point the final entry in a directory chain to a new entry.
+int entry_chain_append(unsigned container_ptr, unsigned entry_ptr);
+
 // List alll entries within a directory
 // dir_ptr - block location of target directory
 // return - 0 if success, -1 otherwise 
@@ -118,7 +121,7 @@ int exfile_add (char *path_ext, unsigned dir);
 // name - name of file to copy out
 // dir - block location of directory to search 
 // return - 0 on success, -1 otherwise
-int exfile_write (char *path_ext, char *path_int, unsigned dir);
+int exfile_write (char *path_int, char *path_ext, unsigned dir);
 
 // NAVIGATION functions
 

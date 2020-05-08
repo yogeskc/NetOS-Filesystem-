@@ -94,14 +94,16 @@ unsigned dir_create(char *name, unsigned container_ptr){
 	free(container);
 
 	// Append link to container end 
-	unsigned cnt_end_ptr = dir_find_end(container_ptr);
+	/*unsigned cnt_end_ptr = dir_find_end(container_ptr);
 	Entry *cnt_end = malloc(BLOCKSIZE);
 
 	LBAread(cnt_end, 1, cnt_end_ptr);
 	cnt_end->block_next = link_start;
 	LBAwrite(cnt_end, 1, cnt_end_ptr);
 
-	free(cnt_end);
+	free(cnt_end);*/
+
+	entry_chain_append(container_ptr, link_start);
 
 	// Update freemap
 	freemap_save();
@@ -282,6 +284,8 @@ int entry_chain_append(unsigned container_ptr, unsigned entry_ptr){
 
 	printf("%s block next = %d\n", dir_end->name, entry_ptr);
 
+	freemap_save();
+
 	free(dir_end);
 
 	return 0;
@@ -298,6 +302,8 @@ int entry_chain_remove(char *name, unsigned container_ptr){
 
 	mod->block_next = rm->block_next;
 	LBAwrite(mod, 1, mod_ptr);
+
+	freemap_save();
 
 	free(mod);
 	free(rm);
@@ -395,14 +401,15 @@ int exfile_add (char *path_ext, unsigned container_ptr){
 	// Find freespace for data
 	unsigned data_blocks = get_required_blocks(data_size);
 	printf("%d - required blocks\n", data_blocks);
-	unsigned data_ptr = freemap_find_freespace(data_blocks, true);
+	unsigned data_ptr = freemap_find_freespace(data_blocks+1, true);
 	if(data_ptr == -1){
 		printf("Could not find %d free blocks!\n", data_blocks);
 		return -1;
 	}
 
-	// Find freespace for entry
-	unsigned entry_ptr = freemap_find_freespace(1, true);
+	// shift data ptr one over, the first block is for the entry
+	data_ptr += 1;
+	unsigned entry_ptr = data_ptr-1;
 
 	// Create new entry and point it to data
 	Entry *entry = malloc(sizeof(Entry));
@@ -413,6 +420,15 @@ int exfile_add (char *path_ext, unsigned container_ptr){
 	entry->is_dir = 0;
 
 	// append to entry chain
+	/*unsigned cnt_end_ptr = dir_find_end(container_ptr);
+	Entry *cnt_end = malloc(BLOCKSIZE);
+
+	LBAread(cnt_end, 1, cnt_end_ptr);
+	cnt_end->block_next = entry_ptr;
+	LBAwrite(cnt_end, 1, cnt_end_ptr;
+	free(cnt_end);*/
+
+	// append to entry chain
 	entry_chain_append(container_ptr, entry_ptr);
 
 	printf("Creating new entry %s:%d\n", entry->name, entry_ptr);
@@ -421,12 +437,17 @@ int exfile_add (char *path_ext, unsigned container_ptr){
 	// write to disk
 	LBAwrite(data, data_blocks, data_ptr);
 	LBAwrite(entry, 1, entry_ptr);
+
+	free(entry);
+	free(data);
+
+	freemap_save();
 	
 	return 0;
 }
 
 
-int exfile_write (char *path_ext, char *path_int, unsigned container_ptr){
+int exfile_write (char *path_int, char *path_ext, unsigned container_ptr){
 	// resolve path to file entry
 	unsigned entry_ptr = resolve_path(path_int, container_ptr, false);
 
