@@ -51,6 +51,11 @@ unsigned dir_create(char *name, unsigned container_ptr){
 		return -1;
 	}
 
+	if(strchr(name, '/') != NULL){
+		printf("Cannot create: dir name %s contains a slash!\n", name);
+		return -1;
+	}
+
 	// Allocate directory and link entries
 	Entry *link = malloc(sizeof(Entry));
 	Entry *parent = malloc(sizeof(Entry));
@@ -384,6 +389,32 @@ int file_move (char *name, unsigned src, unsigned dest){
 	// remove entry from container chain
 	// append entry to dest chain
 	
+	return 0;
+}
+
+int file_rename (char *path, char *new_name, unsigned container_ptr){
+	unsigned target = resolve_path(path, container_ptr, false);
+	if(target == -1){
+		printf("Entry %s not found!\n", path);
+		return -1;
+	}
+	if(strchr(new_name, '/') != NULL){
+		printf("Cannot rename: new filename %s contains a slash!\n", new_name);
+		return -1;
+	}
+
+	// Check if new name has collissions with anything in the dir
+	/*unsigned new_container = resolve_path(path, container_ptr, true);
+	if(dir_find_entry (new_name, new_container, false) != -1){
+		printf("Entry %s already exists!\n", name);
+		return -1;
+	}*/
+
+	Entry *entry = entry_load(target);
+	strcpy(entry->name, new_name);
+	LBAwrite(entry, 1, target);
+
+	freemap_save();
 	return 0;
 }
 

@@ -13,6 +13,15 @@
 // command data
 Finder def_funcs[] = {
     {
+		"exfile_add", 1, 
+		"Add external file into netFS filesystem. File is placed in current directory",
+		"\targ1 - path to external file to be read"
+	},
+    {
+		"exfile_write", 2, "Write out internal file into external filesystem",
+		"\targ1 - path to internal file to be read\n\targ2 - path to external file to be written out to"
+	},
+    {
 		"!rm_file", 1, 
 		"Delete a target file from the filesystem",
 		"\targ1 - path to target file (to be deleted)"
@@ -21,10 +30,6 @@ Finder def_funcs[] = {
 		"!cp_file", 2, 
 		"copy a target file into another directory",
 		"\targ1 - path to target file (to be copied)\n\targ2 - path to destination directory"
-	},
-    {
-		"exit", 0, 
-		"Quit netFS application"
 	},
     {
 		"!mv_file", 2, 
@@ -46,17 +51,17 @@ Finder def_funcs[] = {
 		"\targ1 - path to target directory"
 	},
     {
-		"exfile_add", 1, 
-		"Add external file into netFS filesystem. File is placed in current directory",
-		"\targ1 - path to external file to be read"
-	},
-    {
-		"exfile_write", 2, "Write out internal file into external filesystem",
-		"\targ1 - path to internal file to be read\n\targ2 - path to external file to be written out to"
-	},
-    {
 		"tree", 0, 
 		"print out directories in tree format",
+	},
+	{
+		"rename", 2,
+		"modify the name of a file or directory",
+		"\targ1 - path to file to be renamed\n\targ2 - new name of file"
+	},
+    {
+		"exit", 0, 
+		"Quit netFS application"
 	},
     {
 		"help", 0, "Rescued Done. Hope it helps :)"
@@ -149,6 +154,10 @@ int lsh_parse_input(int argc, char **argv){
 
 	if(strcmp(argv[0], "exfile_write") == 0){
 		exfile_write(argv[1], argv[2], fs_get_cur_dir());
+	}
+
+	if(strcmp(argv[0], "rename") ==0){
+		file_rename(argv[1], argv[2], fs_get_cur_dir());
 	}
     
     return 0;

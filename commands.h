@@ -110,6 +110,9 @@ int file_rm (char *name, unsigned dir_ptr);
 // dest - block location of directory to move file into
 int file_move (char *name, unsigned src, unsigned dest);	
 
+// Change the name of a given file or entry
+int file_rename (char *path, char *new_name, unsigned container_ptr);	
+
 // Copy an external file into an internal directory
 // filepath - path to file in regular filesystem
 // dir - block location of directory to copy into
