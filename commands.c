@@ -312,48 +312,47 @@ unsigned resolve_path(char *path, unsigned dir, bool before){
 
 	if(path[0] == '/'){
 		dir = g_super->ptr_root;
+		if(strlen(path) == 1) return dir;
 	}
 
 	char *buffer = strdup(path);
 	char *split;
-	unsigned last_dir = dir;
+	Entry *search_entry = malloc(BLOCKSIZE);
+	unsigned result = -1;
 
+	// Iterate through slashes
 	while((split = strsep(&buffer, "/")) != NULL) {
-		// Root
-		if(strlen(split) == 0){
-			continue;
-		}
-		printf("Advance to dir %s\n", split);
-		last_dir = dir;
-		
-		// dir advance
-		unsigned target_ptr = dir_find_entry(split, dir, false);
-		if(target_ptr == -1){
+		if(strlen(split) == 0) continue;
+
+		// split = next entry to search for 
+		unsigned search_ptr = dir_find_entry(split, dir, false);
+
+		// entry not found
+		if(search_ptr == -1){
 			return -1;
 		}
-
-		Entry *target = malloc(BLOCKSIZE);
-		LBAread(target, 1, target_ptr);
-		unsigned result = target_ptr; //target->block_data;
-
-		// found the matching entry, cannot advance anymore
-		if(target->is_dir == 0){
-			dir = target_ptr;
-			free(target);
-			break;
+		
+		// Check if dir or file 
+		LBAread(search_entry, 1, search_ptr);
+		result = search_ptr;
+		
+		// If file, is end found?
+		if(search_entry->is_dir == 0){
+			free(buffer);
+			free(search_entry);
+			return search_ptr;
 		}
 
-		free(target);
-		dir = result;
-
-		if(dir < 0){
-			dir = -1;
-			break;
+		// If dir, advance and continue
+		if(search_entry->is_dir == 1){
+			dir = search_entry->block_data;
 		}
 	}
 
-	if(before == true) return last_dir;
-	return dir;
+	free(buffer);
+	free(search_entry);
+
+	return result;
 }
 
 int file_rm (char *path, unsigned container_ptr){
@@ -513,7 +512,7 @@ int fs_change_dir (char *path){
 	}
 
 	if(target == -1){
-		printf("Cannot change directory into %s, not found", path);
+		printf("Cannot change directory into %s, not found\n", path);
 		return -1;
 	}
 
