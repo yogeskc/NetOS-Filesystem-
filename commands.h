@@ -3,139 +3,202 @@
 #include <stdlib.h>
 #include "utils.h"
 
-// Metadata about a given entry
+/* 
+ * Entry - Storage object which points to either a Directory or file
+ *
+ * if Entry is a file, blk_data points to the start block of the file's raw data
+ * if Entry is a directory, blk_data points to the associated Directory block
+ * if Entry is a directory, it's size is 0
+ *
+ * size is counted in bytes
+ *
+ * blk_next points to the next Entry within the Directory's entry chain
+ * blk_next equals -1 at the end of the chain
+ *
+ * metadata is contained directly in the Entry struct
+ */
 typedef struct {
-	unsigned time_created;
-} Nugget;
-
-// Data structure which points to a directory or file
-typedef struct {
-	unsigned block_data; 	// ptr to data / directory start block
-	unsigned block_next;	// ptr to next entry in directory
-	unsigned size; 			// size (bytes) of the associated file / dir
+	unsigned blk_data; 	
+	unsigned blk_next;	
+	unsigned size; 
 	char name[256];
 	int is_dir;
-	Nugget info;
+	unsigned time_created;
 } Entry;
 
-// Data structure which points to the beginning of a directory entry chain
+/* 
+ * Directory - Storage object which points to the beginning of an entry chain
+ *
+ * Directories are sandwiched between two linking entries:
+ * - the (..) entry, which points back to the container dir
+ * - the link entry, which resides within the container dir's entry chain
+ *
+ * Many of the FS functions are designed around taking a directory block
+ * (usually called blk_container), and then iterating over it's directory chain
+ *
+ * The global variable 'g_cur_dir' stores the pointer to the current Directory block.
+ * This can intuitively be used for functions within commands.h. For example,
+ *
+ * dir_list(g_cur_dir) will list your current directory, and 
+ * dir_find_entry("name", g_cur_dir) searches your current directory for an entry.
+ */
 typedef struct{
-	unsigned block_start; // block of first dir in the chain
+	unsigned blk_start; 
 } Directory;
 
-// Data structure for holding global filesystem info
+/* 
+ * Superblock - Holds global filesystem info
+ *
+ * The superblock is ALWAYS written to block 0
+ * when the filesystem is started, it's loaded as a global variable 'g_super'
+ * len_freemap stores the count of freemap blocks (stored after the superblock).
+ *
+ */
 typedef struct{
-	unsigned ptr_root; 		// Pointer to root directory
-	unsigned ptr_freemap;	// Pointer to freemap blocks
-	unsigned len_freemap;	// Length of freemap blocks
+	unsigned blk_root; 		
+	unsigned blk_freemap;	
+	unsigned len_freemap;
 } Superblock;
 
-// DIR functions
-
-// Create a new directory 
-// name - name of new directory to create
-// dir_ptr - block location of container directory
-// return - new block location of created directory
-unsigned dir_create (char *name, unsigned container_ptr);	
+/* 
+ * Create a new directory within blk_container
+ * params - new dir name, block of container dir
+ * returns - block location of new directory
+*/
+unsigned dir_create (char *name, unsigned blk_container);
 unsigned dir_create_root ();	
 
-// Move a directory into another
-// src - block location of directory to modify
-// dest - block location of directory to move into
-// return - new block location of src directory
-unsigned dir_move (char *name_src, char *path_dest, unsigned container_ptr);
+unsigned dir_move(char *path_src, char *path_dest, unsigned blk_container);
+int dir_rm(char *path_src, unsigned blk_container);
 
-// Delete a directory and all entries within it
-// name - name of directory to delete
-// dir - block location of container directory
-// return - 0 on success, -1 otherwise
-int dir_rm(char *name, unsigned container_ptr);
+/*
+ * Iterate across an entry chain, print all entry names
+ * params - block of directory to iterate
+ */
+int dir_list (unsigned blk_container);
 
-// Load a pointer to a directory into a Directory struct
-// dir_ptr - block location of target directory 
-// return - A malloc'd struct filled with the target directory's data
-Directory *dir_load (unsigned dir_ptr);			
+/* 
+ * Recursive function which prints the directories in a 
+ * tree format. Deeper levels are tabbed inwards using
+ * |_ symbols, to help visualize how the tree looks.
+ *
+ * dir_tree should be called with level=0 (this param is used in the recursion)
+ */
+int dir_tree (unsigned blk_container, int level);
 
-// Load a pointer to a directory into a Entry struct
-// entry_ptr - block location of target directory 
-// return - A malloc'd struct filled with the target directory's data
-Entry *entry_load (unsigned entry_ptr);			
+/*
+ * Search a directory for a given entry matching "name"
+ * params - the search name, and container dir
+ *
+ * the 'before' parameter defines whether or not to 
+ * return the entry preceeding the search result.
+ *
+ * returns - the block location of the search result entry. -1 if it doesnt exist.
+ */
+unsigned dir_find_entry (char *name, unsigned blk_container);
 
-// Point the final entry in a directory chain to a new entry.
-int entry_chain_append(unsigned container_ptr, unsigned entry_ptr);
+/* 
+ * Follow a entry chain until the end is reached,
+ * return block location of final entry. -1 on error.
+ */
+unsigned dir_find_end (unsigned blk_container);	
 
-// List alll entries within a directory
-// dir_ptr - block location of target directory
-// return - 0 if success, -1 otherwise 
-int dir_list (unsigned dir_ptr);
-int dir_tree (unsigned dir_ptr, int level);
+/* 
+ * Load a target block into a Directory struct,
+ * return a malloc'd struct filled with the target directory's data
+ */
+Directory *dir_load (unsigned block);			
 
-// Search a directory for a given entry matching "name"
-// name - string to search for
-// dir - block location of directory to search
-// return - pointer to search result, -1 if doesn't exist
-unsigned dir_find_entry (char *name, unsigned dir_ptr, bool before);	
+/* 
+ * Load a target block into an Entry struct,
+ * return a malloc'd struct filled with the target entry's data
+ */
+Entry *entry_load (unsigned block);			
 
-// Follow the chain of entries within a directory until the end is reached
-// dir - block location of directory to iterate 
-// return - pointer to final element
-unsigned dir_find_end (unsigned dir);	
+/*
+ * Seek to the end of an entry chain, and 
+ * point the final Entry to a new block location
+ * params - block of container directory, and new block location to point to
+ */
+int entry_chain_append(unsigned blk_container, unsigned entry_ptr);
 
-// In reference to a container dir, advance into the next directory
-// dir - directory to start from
-// name - directory to advance into 
-// return - pointer to target dir 
-unsigned dir_advance(char *name, unsigned dir_ptr);
+/*
+ * Analyze a given filepath and search for an associated Entry.
+ * 
+ * The function splits apart the path parameter by slashes, 
+ * iterating through each directory and checking if the next
+ * part exists. This repeats until the end is reached.
+ *
+ * the 'dir' variable is the directory where the search begins.
+ * if the path begins with a slash, 'dir' is immediately set to root
+ *
+ * examples of valid path arguments:
+ *
+ * /images/family/2020.png
+ * music/albums/pink_floyd/
+ * ../../folder/hello.txt
+ * 
+ * returns - block location of search entry result, -1 if it doesnt exist.
+ * for directories, the link Entry is returned (the entry within the container)
+ * for files, the plain Entry is returned.
+ */
+unsigned resolve_path(char *path, unsigned dir);
 
-// Return entry associated with a path
-// dir - starting dir. Where the path reference starts from
-unsigned resolve_path(char *path, unsigned dir, bool before);
+//int file_rm (char *name, unsigned blk_container);
+//int file_move (char *path_src, char *path_dest, unsigned blk_container);	
 
-// FILE functions
+/*
+ * Resolve path parameter into an entry, 
+ * if it exists, replace name and save changes to disk.
+ *
+ * names with slash (/) characters are not accepted
+ * you cannot rename (/) the root dir
+ * you cannot rename (..) directories
+ */ 
+int file_rename (char *path, char *new_name, unsigned blk_container);	
 
-// Search for an entry within a directory, delete it. MUST BE A FILE
-// name - name of file to search for
-// dir - block location of directory to search
-int file_rm (char *name, unsigned dir_ptr);
+/*
+ * Search for an external file (outside of NetFS)
+ * if it exists, split it into blocks and store it within the filesystem
+ *
+ * params - container block to add the new file into 
+ */ 
+int exfile_add (char *path_ext, unsigned blk_container);
 
-// Search for entry within a directory, move it to another directory
-// name - name of file to search for
-// src - block location of directory to search
-// dest - block location of directory to move file into
-int file_move (char *name, unsigned src, unsigned dest);	
+/* 
+ * Resolve the path_int param into an entry,
+ * if it exists, write the file's data to the external filesystem (outside of NetFS)
+ * params - path for internal and external (Dest) file, and the container
+ */
+int exfile_write (char *path_int, char *path_ext, unsigned blk_container);
 
-// Change the name of a given file or entry
-int file_rename (char *path, char *new_name, unsigned container_ptr);	
-
-// Copy an external file into an internal directory
-// filepath - path to file in regular filesystem
-// dir - block location of directory to copy into
-// return - 0 on success, -1 otherwise
-int exfile_add (char *path_ext, unsigned dir);
-
-// Search for an internal file within a given directory, then write it out to the external filesystem
-// filepath - Path to where the internal file will be placed in the external filesystem
-// name - name of file to copy out
-// dir - block location of directory to search 
-// return - 0 on success, -1 otherwise
-int exfile_write (char *path_int, char *path_ext, unsigned dir);
-
-// NAVIGATION functions
-
-// Resolve the input path, then move into that directory
-// name - directory to search for
-// return - 0 on success, -1 otherwise
+/*
+ * Resolve the path into an entry
+ * if it exists, modify the filesystem's current directory
+ *
+ * this func sets the global g_cur_dir variable
+ */
 int fs_change_dir (char *path);		
 
-// Returns block location of current directory (default: root)
+/*
+ * Returns block location of filesystem current directory (default: root)
+ */
 unsigned fs_get_cur_dir ();
 
-// FS core functions
-
-// Start the filesystem. Create empty if non-existant. Otherwise, load the existing data.
-// filename - filepath to filesystem data file.
-// return - 0 on success, -1 otherwise
+/*
+ * Start the filesystem. 
+ *
+ * 'filename' is the path to the external netFS filesystem file.
+ * if the filename doesnt exist, a new, blank filesystem will be created.
+ * if the filename does exist, the program will attempt to load the netFS filesystem from it.
+ *
+ */
 int fs_start (char *filename);
 
-// Close filesystem, free all globals
+/*
+ * Cleanup the filesystem
+ *
+ * Free all globals allocated in fs_start() 
+ * aka: freemap, superblock, etc
+ */
 void fs_close ();

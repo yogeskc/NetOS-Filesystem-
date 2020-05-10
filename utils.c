@@ -84,7 +84,6 @@ int write_file_data(char *path, void *data, unsigned size){
 	return -0;
 }
 
-
 // Return number of args within a given string
 int get_arg_count(char *input){
 	// Duplicate input so it doesn't screw up the original string
