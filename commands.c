@@ -186,12 +186,12 @@ int dir_tree (unsigned blk_container, int level){
 			for(int i = 0; i < level; i++)
 				printf("|_");
 
-			printf("%s/\n", iter->name, blk_container);
+			printf("%s/\n", iter->name);
 			dir_tree(iter->blk_data, level+1);
 		}else{
 			for(int i = 0; i < level; i++)
 				printf("|_");
-			printf("%s\n", iter->name, iter->blk_data);
+			printf("%s\n", iter->name);
 		}
 	}
 
