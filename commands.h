@@ -21,7 +21,6 @@ typedef struct {
 // Data structure which points to the beginning of a directory entry chain
 typedef struct{
 	unsigned block_start; // block of first dir in the chain
-	char name[256];
 } Directory;
 
 // Data structure for holding global filesystem info
@@ -93,11 +92,6 @@ unsigned dir_advance(char *name, unsigned dir_ptr);
 unsigned resolve_path(char *path, unsigned dir, bool before);
 
 // FILE functions
-
-// Search for an entry within a directory, return it's raw associated data
-// name - name of file to search for
-// dir - block location of directory to search
-void *file_read (char *name, unsigned dir_ptr);
 
 // Search for an entry within a directory, delete it. MUST BE A FILE
 // name - name of file to search for
