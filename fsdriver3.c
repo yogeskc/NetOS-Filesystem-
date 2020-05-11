@@ -155,6 +155,10 @@ int lsh_parse_input(int argc, char **argv){
 		file_remove(argv[1]);
 	}
 
+	if(strcmp(argv[0], "mv") == 0){
+		file_move(argv[1], argv[2]);
+	}
+
 	// Run associated function
     if(strcmp(argv[0], "exit") == 0){
         return -1;
@@ -296,9 +300,9 @@ int main(int argc, char *argv[]){
     //taking a path to a file doesn't exist. ./netfs will automatically create a file call 'test'. A blank file that is, whenever it's created or listed, it's happening within that file.
     fs_start("test");
     
-	//lsh_loop();
+	lsh_loop();
 	
-	//freemap_set(0, 10, 32);
+	/*//freemap_set(0, 10, 32);
 	//freemap_save();
 
 	exfile_add("media/cat.jpg");
@@ -320,7 +324,7 @@ int main(int argc, char *argv[]){
 	dir_list(fs_get_cur_dir(), true);
 	fs_change_dir("..");
 	file_remove("cat.jpg");
-	dir_tree(fs_get_cur_dir(), 0);
+	dir_tree(fs_get_cur_dir(), 0);*/
      
     fs_close();
     

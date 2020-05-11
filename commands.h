@@ -145,7 +145,7 @@ int entry_chain_append(unsigned blk_container, unsigned entry_ptr);
 unsigned resolve_path(char *path, unsigned dir);
 
 int file_remove (char *name);
-//int file_move (char *path_src, char *path_dest, unsigned blk_container);	
+int file_move (char *name_src, char *name_dest);	
 
 /*
  * Search for entry within current directory

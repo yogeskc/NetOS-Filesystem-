@@ -365,12 +365,13 @@ unsigned resolve_path(char *path, unsigned dir){
 // Remove a file from the filesystem. Update entry chains and freemap
 int file_remove (char *name){
 	unsigned rm_ptr = dir_find_entry(name, g_cur_dir, false);
+	unsigned mod_ptr = dir_find_entry(name, g_cur_dir, true);
+
 	if(rm_ptr == -1){
 		printf("%s not found in current dir\n", name);
 		return -1;
 	}
 
-	unsigned mod_ptr = dir_find_entry(name, g_cur_dir, true);
 	if(mod_ptr == -1){
 		printf("prev entry not found in current dir\n");
 		return -1;
@@ -378,13 +379,14 @@ int file_remove (char *name){
 
 
 	Entry *rm = entry_load(rm_ptr);
+	Entry *mod = entry_load(mod_ptr);
 
 	if(rm->is_dir == 1){
 		printf("Cannot remove %s, it's a directory!\n", rm->name);
+		free(rm);
+		free(mod);
 		return -1;
 	}
-
-	Entry *mod = entry_load(mod_ptr);
 
 	printf("Remove entry %s @ %d, mod entry %s @ %d\n", rm->name, rm_ptr, mod->name, mod_ptr);
 
@@ -397,21 +399,63 @@ int file_remove (char *name){
 	// mark entry and associated data as free
 	printf("delete block %d\n", rm_ptr);
 	printf("delete blocks %d->%d\n", rm->blk_data, rm->blk_data+rm_blocks);
-	freemap_set(0, 1, rm_ptr);
-	freemap_set(0, rm_blocks, rm->blk_data);
 
 	// update freemap
+	freemap_set(0, 1, rm_ptr);
+	freemap_set(0, rm_blocks, rm->blk_data);
 	freemap_save();
+
+	free(rm);
+	free(mod);
 	
     return 0;
 }
 
 // Move a file into another directory. Update entry chains and freemap
-int file_move (char *name, char *path_dest){
-	// resolve path to src entry
-	// resolve path to dest dir 
-	// remove entry from container chain
-	// append entry to dest chain
+int file_move (char *name_src, char *name_dest){
+	unsigned src_ptr = dir_find_entry(name_src, g_cur_dir, false);
+	unsigned mod_ptr = dir_find_entry(name_src, g_cur_dir, true);
+	unsigned dest_ptr = dir_find_entry(name_dest, g_cur_dir, false);
+
+	if(src_ptr == -1){
+		printf("%s not found in current dir\n", name_src);
+		return -1;
+	}
+
+	if(mod_ptr == -1){
+		printf("Error, no entry preceeding target entry\n");
+		return -1;
+	}
+
+	if(dest_ptr == -1){
+		printf("%s not found in current dir\n", name_dest);
+		return -1;
+	}
+
+	Entry *src = entry_load(src_ptr);
+	Entry *mod = entry_load(mod_ptr);
+	Entry *dest = entry_load(dest_ptr);
+
+	if(src->is_dir == 1){
+		printf("Cannot move %s, it's not a file!\n", src->name);
+		return -1;
+	}
+
+	if(dest->is_dir == 0){
+		printf("Cannot move into %s, it's not a directory!\n", dest->name);
+		return -1;
+	}
+
+	printf("Move entry %s @ %d, into dir %s @ %d\n", src->name, src_ptr, dest->name, dest_ptr);
+
+	// remove entry from original chain
+	mod->blk_next = src->blk_next;
+	LBAwrite(mod, 1, mod_ptr);
+
+	// append entry into dest chain 
+	entry_chain_append(dest->blk_data, src_ptr);
+	
+	// update freemap
 	freemap_save();
 	
 	return 0;
