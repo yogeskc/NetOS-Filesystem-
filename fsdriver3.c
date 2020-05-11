@@ -8,41 +8,61 @@
 #include "commands.h"
 #include "utils.h"
 
+#define LSH_RL_BUFSIZE 1024
+#define LSH_TOK_BUFSIZE 64
+#define LSH_TOKEN " \t\r\n\a"
+
+/*
+ * Command Finder struct - contains info about a command
+ * which can be called in the NetFS terminal. These are
+ * constructed below in the def_funcs array.
+ *
+ * cmd_id = the name of the function (ls, cd, etc..)
+ * min_args = minimum args required to run the function.
+ *
+ * description/arg description are strings which get printed 
+ * when running the 'help' command.
+ */
 
 typedef struct{
-    
-    char *cmd_id;      //name of func
-    int min_args;      // no. of minimum arguments
-    char *description; //describe what it does
-    char *arg_description;    // array of descriptions for each arg
-    
+    char *cmd_id;
+    int min_args;
+    char *description;
+    char *arg_description;
 } Finder;
  
-//giving def of the struct Finder
+/*
+ * List of all NetFS functions
+ */
 Finder def_funcs[] = {
     {
-		"exfile_add", 1, 
+		"add", 1, 
 		"Add external file into netFS filesystem. File is placed in current directory",
 		"\targ1 - path to external file to be read"
 	},
     {
-		"exfile_write", 2, "Write out internal file into external filesystem",
+		"write", 2, "Write out internal file into external filesystem",
 		"\targ1 - path to internal file to be read\n\targ2 - path to external file to be written out to"
 	},
     {
-		"!rm_file", 1, 
+		"rm", 1, 
 		"Delete a target file from the filesystem",
 		"\targ1 - path to target file (to be deleted)"
 	},
 	{
-		"!cp_file", 2, 
+		"cp", 2, 
 		"copy a target file into another directory",
 		"\targ1 - path to target file (to be copied)\n\targ2 - path to destination directory"
 	},
     {
-		"!mv_file", 2, 
+		"mv", 2, 
 		"move the files from one directory to another",
 		"\targ1 - path to target directory (to be moved)\n\targ2 - path to destination directory"
+	},
+	{
+		"rename", 2,
+		"modify the name of a file or directory",
+		"\targ1 - path to file to be renamed\n\targ2 - new name of file"
 	},
     {
 		"ccd", 1, 
@@ -54,18 +74,13 @@ Finder def_funcs[] = {
 		"Lists content of current folder"
 	},
     {
-		"cd", 1, 
-		"Change the directory to a given location",
-		"\targ1 - path to target directory"
-	},
-    {
 		"tree", 0, 
 		"print out directories in tree format",
 	},
-	{
-		"rename", 2,
-		"modify the name of a file or directory",
-		"\targ1 - path to file to be renamed\n\targ2 - new name of file"
+    {
+		"cd", 1, 
+		"Change the directory to a given location",
+		"\targ1 - path to target directory"
 	},
     {
 		"exit", 0, 
@@ -75,10 +90,6 @@ Finder def_funcs[] = {
 		"help", 0, "Rescued Done. Hope it helps :)"
 	}
 };
-
-#define LSH_RL_BUFSIZE 1024
-#define LSH_TOK_BUFSIZE 64
-#define LSH_TOKEN " \t\r\n\a"
 
 // find command based on name
 Finder *lsh_find_func(char *name){
@@ -90,6 +101,26 @@ Finder *lsh_find_func(char *name){
 
     printf("Command %s not found.\n", name);
     return NULL;
+}
+
+// Iterate across all def_func structs and print their descriptions
+void lsh_print_help(){
+	printf("Rescue COMING..\n\n");
+
+    for(int i = 0; i < sizeof(def_funcs) / sizeof(def_funcs[0]); i++){
+		// Print func name and base desc
+        printf("[%s]: ", def_funcs[i].cmd_id);
+		printf("%s\n", def_funcs[i].description);
+
+		// Print arg desc
+		if(def_funcs[i].min_args <= 0){
+			printf("\targs: none\n");
+		}else{
+			printf("%s\n", def_funcs[i].arg_description);
+		}
+
+		printf("\n");
+    }
 }
 
 // run an FS command based on user input
@@ -104,68 +135,47 @@ int lsh_parse_input(int argc, char **argv){
         return 0;
     }
 
+	// Check if arg count requirement is met
     if(argc < f->min_args+1){
         printf("%s requires %d arguments\n", f->cmd_id, f->min_args);
         return 0;
     }
 
-    // running associated function w/command
-    if(strcmp(argv[0], "add_file") == 0){
-        //return fs_add_file(argv[1], argv[2]);
-        //fs_add_file(argv[1], 10);
-        return 0;
-    }
-
+	// Run associated function
     if(strcmp(argv[0], "exit") == 0){
         return -1;
     }
 	
     if(strcmp(argv[0], "ls") ==0){ 
-    	
-	dir_list(fs_get_cur_dir());  
-}
-
-  if(strcmp(argv[0], "cd") ==0){ 
-    	
-	//argv[1] takes the user's input and try to navigate
+    	dir_list(fs_get_cur_dir(), false);
+	}
+	
+	if(strcmp(argv[0], "cd") ==0){ 
         fs_change_dir (argv[1]);	
-}
+	}
+	
+	if(strcmp(argv[0], "ccd") ==0){ 
+    	dir_create( argv[1]);
+	}
 
-  if(strcmp(argv[0], "ccd") ==0){ 
-    	
-        
- 	dir_create( argv[1] ,fs_get_cur_dir());	
-}
     if(strcmp(argv[0], "help") ==0){
-        printf("Rescue COMING..\n\n");
-            for(int i = 0; i < sizeof(def_funcs) / sizeof(def_funcs[0]); i++){
-                printf("[%s]: ", def_funcs[i].cmd_id);
-                printf("%s\n", def_funcs[i].description);
-				if(def_funcs[i].min_args <= 0){
-					printf("\targs: none\n");
-				}else{
-					printf("%s\n", def_funcs[i].arg_description);
-				}
-				printf("\n");
-            }
-            
-       
+		lsh_print_help();
     }
 
     if(strcmp(argv[0], "tree") ==0){
 		dir_tree(fs_get_cur_dir(), 0 );
 	}
 
-	if(strcmp(argv[0], "exfile_add") == 0){
-		exfile_add(argv[1], fs_get_cur_dir());
+	if(strcmp(argv[0], "add") == 0){
+		exfile_add(argv[1]); 
 	}
 
-	if(strcmp(argv[0], "exfile_write") == 0){
-		exfile_write(argv[1], argv[2], fs_get_cur_dir());
+	if(strcmp(argv[0], "write") == 0){
+		exfile_write(argv[1], argv[2]); 
 	}
 
 	if(strcmp(argv[0], "rename") ==0){
-		file_rename(argv[1], argv[2], fs_get_cur_dir());
+		file_rename(argv[1], argv[2]);
 	}
     
     return 0;
@@ -279,7 +289,14 @@ int main(int argc, char *argv[]){
     //taking a path to a file doesn't exist. ./netfs will automatically create a file call 'test'. A blank file that is, whenever it's created or listed, it's happening within that file.
     fs_start("test");
     
-    lsh_loop();
+    //lsh_loop();
+	
+	exfile_add("media/cat.jpg");
+	exfile_add("media/hp.mp3");
+	dir_create("tears");
+	dir_create("in");
+	dir_create("rain");
+	exfile_add("media/illegal.jpg");
      
     fs_close();
     

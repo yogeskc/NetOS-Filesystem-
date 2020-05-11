@@ -61,21 +61,21 @@ typedef struct{
 } Superblock;
 
 /* 
- * Create a new directory within blk_container
- * params - new dir name, block of container dir
+ * Create a new directory within the current directory
+ * params - new dir name 
  * returns - block location of new directory
 */
-unsigned dir_create (char *name, unsigned blk_container);
+unsigned dir_create (char *name);
 unsigned dir_create_root ();	
 
-unsigned dir_move(char *path_src, char *path_dest, unsigned blk_container);
-int dir_rm(char *path_src, unsigned blk_container);
+//unsigned dir_move(char *path_src, char *path_dest, unsigned blk_container);
+//int dir_rm(char *path_src, unsigned blk_container);
 
 /*
  * Iterate across an entry chain, print all entry names
  * params - block of directory to iterate
  */
-int dir_list (unsigned blk_container);
+int dir_list (unsigned dir_ptr, bool print_blocks);
 
 /* 
  * Recursive function which prints the directories in a 
@@ -84,7 +84,7 @@ int dir_list (unsigned blk_container);
  *
  * dir_tree should be called with level=0 (this param is used in the recursion)
  */
-int dir_tree (unsigned blk_container, int level);
+int dir_tree (unsigned dir_ptr, int level);
 
 /*
  * Search a directory for a given entry matching "name"
@@ -95,13 +95,13 @@ int dir_tree (unsigned blk_container, int level);
  *
  * returns - the block location of the search result entry. -1 if it doesnt exist.
  */
-unsigned dir_find_entry (char *name, unsigned blk_container);
+unsigned dir_find_entry (char *name, unsigned dir_ptr);
 
 /* 
  * Follow a entry chain until the end is reached,
  * return block location of final entry. -1 on error.
  */
-unsigned dir_find_end (unsigned blk_container);	
+unsigned dir_find_end (unsigned dir_ptr);	
 
 /* 
  * Load a target block into a Directory struct,
@@ -148,29 +148,29 @@ unsigned resolve_path(char *path, unsigned dir);
 //int file_move (char *path_src, char *path_dest, unsigned blk_container);	
 
 /*
- * Resolve path parameter into an entry, 
+ * Search for entry within current directory
  * if it exists, replace name and save changes to disk.
  *
  * names with slash (/) characters are not accepted
  * you cannot rename (/) the root dir
  * you cannot rename (..) directories
  */ 
-int file_rename (char *path, char *new_name, unsigned blk_container);	
+int file_rename (char *path, char *new_name);	
 
 /*
  * Search for an external file (outside of NetFS)
  * if it exists, split it into blocks and store it within the filesystem
  *
- * params - container block to add the new file into 
+ * file is appended into current directory
  */ 
-int exfile_add (char *path_ext, unsigned blk_container);
+int exfile_add (char *path_ext);
 
 /* 
- * Resolve the path_int param into an entry,
+ * search for entry within current directory
  * if it exists, write the file's data to the external filesystem (outside of NetFS)
  * params - path for internal and external (Dest) file, and the container
  */
-int exfile_write (char *path_int, char *path_ext, unsigned blk_container);
+int exfile_write (char *name, char *path_ext);
 
 /*
  * Resolve the path into an entry

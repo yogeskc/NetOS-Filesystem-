@@ -34,9 +34,6 @@ unsigned dir_create_root(){
 	LBAwrite(root, 1, root_start);
 	LBAwrite(parent, 1, parent_start);
 	
-	// Update freemap
-	freemap_save();
-
 	// free buffers
 	free(root);
 	free(parent);
@@ -45,9 +42,9 @@ unsigned dir_create_root(){
 }
 
 // Create a new directory within a container dir
-unsigned dir_create(char *name, unsigned blk_container){
+unsigned dir_create(char *name){
 	// check if dir already exists
-	if(dir_find_entry (name, blk_container) != -1){
+	if(dir_find_entry (name, g_cur_dir) != -1){
 		printf("Entry %s already exists!\n", name);
 		return -1;
 	}
@@ -55,6 +52,11 @@ unsigned dir_create(char *name, unsigned blk_container){
 	// Check if dir name contains slashes
 	if(strchr(name, '/') != NULL){
 		printf("Cannot create: dir name %s contains a slash!\n", name);
+		return -1;
+	}
+
+	if(strlen(name) > 256){
+		printf("Cannot create dir: name > 256 chars!\n");
 		return -1;
 	}
 
@@ -78,7 +80,7 @@ unsigned dir_create(char *name, unsigned blk_container){
 	// Fill out (..) data
 	// The (..) entry resides in the new directory, and points back to the dir's container
 	strcpy(parent->name, "..");
-	parent->blk_data = blk_container;
+	parent->blk_data = g_cur_dir;
 	parent->blk_next = -1;
 	parent->is_dir = 1;
 	
@@ -96,18 +98,15 @@ unsigned dir_create(char *name, unsigned blk_container){
 	free(parent);
 	free(dir);
 
-	// Update freemap
-	freemap_save();
-
 	// Append the link entry to the end of the container's entry chain
-	entry_chain_append(blk_container, link_start);
+	entry_chain_append(g_cur_dir, link_start);
 
 	printf("Created dir %s @ block %d\n", name, dir_start); 
 
 	return dir_start;
 }
 
-unsigned dir_move(char *path_src, char *path_dest, unsigned blk_container){
+unsigned dir_move(char *path_src, char *path_dest){
 	// find directory containing entry
 	// find entry itself
 	// remove entry from container chain
@@ -116,7 +115,7 @@ unsigned dir_move(char *path_src, char *path_dest, unsigned blk_container){
 	return -1;
 }
 
-int dir_rm(char *path_src, unsigned blk_container){
+int dir_rm(char *path_src){
 	// find directory containing entry 
 	// find entry itself
 	// remove entry from container chain
@@ -127,12 +126,12 @@ int dir_rm(char *path_src, unsigned blk_container){
 }
 
 // Iterate across a directory's entry chain, print all names
-int dir_list (unsigned blk_container){
+int dir_list (unsigned dir_ptr, bool print_blocks){
 	// Load directory associated with container ptr
 	Directory *dir = malloc(BLOCKSIZE);
-	LBAread(dir, 1, blk_container);
+	LBAread(dir, 1, dir_ptr);
 
-	printf("Listing DIR @ block %d\n", blk_container);
+	printf("Listing DIR @ block %d\n", dir_ptr);
 
 	// Allocate iterator
 	Entry *iter = malloc(BLOCKSIZE);
@@ -142,17 +141,26 @@ int dir_list (unsigned blk_container){
 
 	// If blank name, something went wrong!!
 	if(strlen(iter->name) == 0){
-		printf("Error: directory @ block %d is correpted.\n", blk_container);
+		printf("Error: directory @ block %d is correpted.\n", dir_ptr);
 		return -1;
 	}
 
+	char *name = iter->name;
+
 	// Print first name
-	printf("- %s->%d\n", iter->name, iter->blk_next);
+	if(print_blocks == true) 
+		printf("%s @ block %d\n", iter->name, dir->blk_start);
+	else
+		printf("%s\n", iter->name);
 
 	// Continue loading dirs until end is reached
 	while(iter->blk_next != -1){
+		unsigned tmp_block = iter->blk_next;
 		LBAread(iter, 1, iter->blk_next);
-		printf("- %s->%d\n", iter->name, iter->blk_next);
+		if(print_blocks == true)
+			printf("%s @ block %d\n", iter->name, tmp_block);
+		else
+			printf("%s\n", iter->name);
 	}
 
 	free(iter);
@@ -162,10 +170,10 @@ int dir_list (unsigned blk_container){
 }
 
 // Recursive print directory structure
-int dir_tree (unsigned blk_container, int level){
+int dir_tree (unsigned dir_ptr, int level){
 	// Load directory associated with container ptr
 	Directory *dir = malloc(BLOCKSIZE);
-	LBAread(dir, 1, blk_container);
+	LBAread(dir, 1, dir_ptr);
 
 	Entry *iter = malloc(BLOCKSIZE);
 
@@ -202,8 +210,8 @@ int dir_tree (unsigned blk_container, int level){
 }
 
 // Search an entry chain for a matching name, return block pointer
-unsigned dir_find_entry (char *name, unsigned blk_container){
-	Directory *dir = dir_load(blk_container);
+unsigned dir_find_entry (char *name, unsigned dir_ptr){
+	Directory *dir = dir_load(dir_ptr);
 
 	// Load first entry in dir
 	Entry *iter = malloc(BLOCKSIZE);
@@ -235,8 +243,8 @@ unsigned dir_find_entry (char *name, unsigned blk_container){
 }
 
 // Return pointer to final entry in a block chain
-unsigned dir_find_end (unsigned blk_container){
-	Directory *dir = dir_load(blk_container);
+unsigned dir_find_end (unsigned dir_ptr){
+	Directory *dir = dir_load(dir_ptr);
 
 	// Load first entry in dir
 	Entry *iter = malloc(BLOCKSIZE);
@@ -268,8 +276,8 @@ Entry *entry_load(unsigned block){
 	return entry;
 }
 
-int entry_chain_append(unsigned blk_container, unsigned entry_ptr){
-	unsigned dir_end_ptr = dir_find_end(blk_container);
+int entry_chain_append(unsigned dir_ptr, unsigned entry_ptr){
+	unsigned dir_end_ptr = dir_find_end(dir_ptr);
 	if(dir_end_ptr == -1){
 		return -1;
 	}
@@ -282,8 +290,6 @@ int entry_chain_append(unsigned blk_container, unsigned entry_ptr){
 	LBAwrite(dir_end, 1, dir_end_ptr);
 
 	printf("%s block next = %d\n", dir_end->name, entry_ptr);
-
-	freemap_save();
 
 	free(dir_end);
 
@@ -301,8 +307,6 @@ int entry_chain_append(unsigned blk_container, unsigned entry_ptr){
 
 	mod->blk_next = rm->blk_next;
 	LBAwrite(mod, 1, mod_ptr);
-
-	freemap_save();
 
 	free(mod);
 	free(rm);
@@ -361,7 +365,7 @@ unsigned resolve_path(char *path, unsigned dir){
 }
 
 // Remove a file from the filesystem. Update entry chains and freemap
-int file_rm (char *path, unsigned blk_container){
+int file_rm (char *name){
 	// resolve path to entry
 	// resolve path to container dir 
 	// remove entry from container chain
@@ -371,7 +375,7 @@ int file_rm (char *path, unsigned blk_container){
 }
 
 // Move a file into another directory. Update entry chains and freemap
-int file_move (char *path_src, char *path_dest, unsigned blk_container){
+int file_move (char *name, char *path_dest){
 	// resolve path to src entry
 	// resolve path to dest dir 
 	// remove entry from container chain
@@ -381,12 +385,12 @@ int file_move (char *path_src, char *path_dest, unsigned blk_container){
 }
 
 // Modify an entry name in filesystem
-int file_rename (char *path, char *new_name, unsigned blk_container){
-	unsigned target = resolve_path(path, blk_container);
+int file_rename (char *name, char *new_name){
+	unsigned target = dir_find_entry(name, g_cur_dir); //resolve_path(path, g_cur_dir);
 	
 	// invalid path
 	if(target == -1){
-		printf("Entry %s not found!\n", path);
+		printf("Entry %s not found in cur directory\n", name);
 		return -1;
 	}
 
@@ -397,7 +401,7 @@ int file_rename (char *path, char *new_name, unsigned blk_container){
 	}
 
 	// Check if renaming a .. entry	
-	if(strcmp(basename(path), "..") == 0){
+	if(strcmp(name, "..") == 0){
 		printf("Cannot rename: new filename %s modifies a .. directory!\n", new_name);
 		return -1;
 	}
@@ -413,49 +417,55 @@ int file_rename (char *path, char *new_name, unsigned blk_container){
 	strcpy(entry->name, new_name);
 	LBAwrite(entry, 1, target);
 
-	// Update freemap
-	freemap_save();
 	return 0;
 }
 
 // Search for an external file (outside of NetFS) and copy it inside
-int exfile_add (char *path_ext, unsigned blk_container){
+int exfile_add (char *path_ext){
 	void *data = get_file_data(path_ext);
 
 	if(data == NULL){
 		printf("Could not load file %s\n", path_ext);
+		free(data);
 		return -1;
 	}
 
 	unsigned data_size = get_file_size(path_ext);
 	printf("data_size : %d\n", data_size);
 
-	// Find freespace for data
-	unsigned data_blocks = get_required_blocks(data_size);
-	printf("%d - required blocks\n", data_blocks);
-	unsigned data_ptr = freemap_find_freespace(data_blocks+1, true);
-	if(data_ptr == -1){
-		printf("Could not find %d free blocks!\n", data_blocks);
+	char *path_base = basename(path_ext);
+
+	if(dir_find_entry(path_base, g_cur_dir) != -1){
+		printf("File %s already exists!\n", path_base);
+		free(data);
 		return -1;
 	}
 
-	// shift data ptr one over, the first block is for the entry
-	data_ptr += 1;
-	unsigned entry_ptr = data_ptr-1;
+	// Find freespace for data
+	unsigned data_blocks = get_required_blocks(data_size);
+	printf("%d - required blocks\n", data_blocks);
+
+	unsigned entry_ptr = freemap_find_freespace(1, true);
+	unsigned data_ptr = freemap_find_freespace(data_blocks, true);
+	if(data_ptr == -1){
+		printf("Could not find %d free blocks!\n", data_blocks);
+		free(data);
+		return -1;
+	}
 
 	// Create new entry and point it to data
 	Entry *entry = malloc(sizeof(Entry));
-	strcpy(entry->name, basename(path_ext));
+	strcpy(entry->name, path_base);
 	entry->blk_data = data_ptr;
 	entry->blk_next = -1;
 	entry->size = data_size;
 	entry->is_dir = 0;
 
 	// append to entry chain
-	entry_chain_append(blk_container, entry_ptr);
+	entry_chain_append(g_cur_dir, entry_ptr);
 
-	printf("Creating new entry %s:%d\n", entry->name, entry_ptr);
-	printf("Creating data %d->%d\n", data_ptr, data_blocks);
+	printf("Creating new entry %s, @ %d\n", entry->name, entry_ptr);
+	printf("Creating data @ %d, %d blocks\n", data_ptr, data_blocks);
 
 	// write to disk
 	LBAwrite(data, data_blocks, data_ptr);
@@ -464,15 +474,13 @@ int exfile_add (char *path_ext, unsigned blk_container){
 	free(entry);
 	free(data);
 
-	freemap_save();
-	
 	return 0;
 }
 
 // Search for an internal file, and copy it outside of NetFS filesystem
-int exfile_write (char *path_int, char *path_ext, unsigned blk_container){
+int exfile_write (char *name, char *path_ext){
 	// resolve path to file entry
-	unsigned entry_ptr = resolve_path(path_int, blk_container);
+	unsigned entry_ptr = dir_find_entry(name, g_cur_dir); //resolve_path(path_int, g_cur_dir);
 
 	if(entry_ptr == g_super->blk_root){
 		printf("cannot write out root\n");
@@ -480,16 +488,15 @@ int exfile_write (char *path_int, char *path_ext, unsigned blk_container){
 	}
 
 	if(entry_ptr == -1){
-		printf("Error: %s does not exist\n", path_int);
+		printf("Error: %s not found in cur dir\n", name);
 		return -1;
 	}
 
 	Entry *entry = entry_load(entry_ptr);
-	printf("Resolved to entry %s:%d\n", entry->name, entry_ptr);
 
 	// Check if file
 	if(entry->is_dir == 1){
-		printf("Error: %s is a directory!\n", path_int);
+		printf("Error: %s is a directory!\n", name);
 		return -1;
 	}
 
@@ -619,6 +626,7 @@ int fs_start(char *filename){
 void fs_close(){
 	closePartitionSystem();
 
+	freemap_save();
 	freemap_cleanup();
 	free(g_super);
 }

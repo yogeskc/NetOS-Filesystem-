@@ -141,17 +141,18 @@ unsigned freemap_find_freespace(unsigned blk_len, bool auto_set){
 
 		// Search each row of freemap
 		for(int j = 0; j < 8; j++){
+			// If the counter was just reset, set the current index to the free_start_idx.
+			if(counter == 0){
+				free_start_idx = i;
+				free_start_off = j;
+			}
+
 			// If a 1 is encountered, the free space is NOT contiguous. Reset counter
 			if(bits[j] == 1){
 				counter = 0;
 				continue;
 			}
 
-			// If the counter was just reset, set the current index to the free_start_idx.
-			if(counter == 0){
-				free_start_idx = i;
-				free_start_off = j;
-			}
 			counter += 1;
 
 			// Found 'blk_len' amount of contiguous free spaces! success
