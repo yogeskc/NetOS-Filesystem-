@@ -95,7 +95,7 @@ int dir_tree (unsigned dir_ptr, int level);
  *
  * returns - the block location of the search result entry. -1 if it doesnt exist.
  */
-unsigned dir_find_entry (char *name, unsigned dir_ptr);
+unsigned dir_find_entry (char *name, unsigned dir_ptr, bool before);
 
 /* 
  * Follow a entry chain until the end is reached,
@@ -144,7 +144,7 @@ int entry_chain_append(unsigned blk_container, unsigned entry_ptr);
  */
 unsigned resolve_path(char *path, unsigned dir);
 
-//int file_rm (char *name, unsigned blk_container);
+int file_remove (char *name);
 //int file_move (char *path_src, char *path_dest, unsigned blk_container);	
 
 /*
@@ -202,3 +202,6 @@ int fs_start (char *filename);
  * aka: freemap, superblock, etc
  */
 void fs_close ();
+
+// Undo changes to freemap in memory (load last saved freemap)
+void fs_reload_freemap();

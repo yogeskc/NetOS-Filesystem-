@@ -23,7 +23,7 @@ int freemap_get_len();
 // blk_len - how many blocks from the offset to modify at
 // blk_start - offset within the freemap to start modifying at
 // return - 0 on success, -1 otherwise
-int freemap_set(bool taken, unsigned blk_len, unsigned blk_start);
+int freemap_set(int taken, unsigned blk_len, unsigned blk_start);
 
 // search the freemap for the first occurance of contiguous freespace, with length 'blk_len'
 // blk_len - minimum length of free blocks in a row
