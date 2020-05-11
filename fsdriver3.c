@@ -5,17 +5,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+
 #include "commands.h"
 #include "utils.h"
 
-
 typedef struct{
-    
     char *cmd_id;      //name of func
     int min_args;      // no. of minimum arguments
     char *description; //describe what it does
     char *arg_description;    // array of descriptions for each arg
-    
 } Finder;
  
 //giving def of the struct Finder
@@ -30,17 +28,17 @@ Finder def_funcs[] = {
 		"\targ1 - path to internal file to be read\n\targ2 - path to external file to be written out to"
 	},
     {
-		"!rm_file", 1, 
+		"rm", 1, 
 		"Delete a target file from the filesystem",
 		"\targ1 - path to target file (to be deleted)"
 	},
 	{
-		"!cp_file", 2, 
+		"cp", 2, 
 		"copy a target file into another directory",
 		"\targ1 - path to target file (to be copied)\n\targ2 - path to destination directory"
 	},
     {
-		"!mv_file", 2, 
+		"mv", 2, 
 		"move the files from one directory to another",
 		"\targ1 - path to target directory (to be moved)\n\targ2 - path to destination directory"
 	},
@@ -50,22 +48,22 @@ Finder def_funcs[] = {
 		"\targ1 - directory name"
 	},
     {
-		"ls", 0, 
-		"Lists content of current folder"
-	},
-    {
 		"cd", 1, 
 		"Change the directory to a given location",
 		"\targ1 - path to target directory"
-	},
-    {
-		"tree", 0, 
-		"print out directories in tree format",
 	},
 	{
 		"rename", 2,
 		"modify the name of a file or directory",
 		"\targ1 - path to file to be renamed\n\targ2 - new name of file"
+	},
+    {
+		"ls", 0, 
+		"Lists content of current folder"
+	},
+    {
+		"tree", 0, 
+		"print out directories in tree format",
 	},
     {
 		"exit", 0, 
@@ -92,6 +90,26 @@ Finder *lsh_find_func(char *name){
     return NULL;
 }
 
+// command - help. Iterate all def_funcs and print info about them
+void lsh_print_help(){
+	printf("Rescue COMING..\n\n");
+
+	for(int i = 0; i < sizeof(def_funcs) / sizeof(def_funcs[0]); i++){
+		// Print command name and desc
+        printf("[%s]: ", def_funcs[i].cmd_id);
+        printf("%s\n", def_funcs[i].description);
+
+		// Print command arg description
+		if(def_funcs[i].min_args <= 0){
+			printf("\targs: none\n");
+		}else{
+			printf("%s\n", def_funcs[i].arg_description);
+		}
+
+		printf("\n");
+	}    
+}
+
 // run an FS command based on user input
 int lsh_parse_input(int argc, char **argv){
     if(argc <= 0){
@@ -104,58 +122,13 @@ int lsh_parse_input(int argc, char **argv){
         return 0;
     }
 
+	// Check if command meets minimum args
     if(argc < f->min_args+1){
         printf("%s requires %d arguments\n", f->cmd_id, f->min_args);
         return 0;
     }
 
-    // running associated function w/command
-    if(strcmp(argv[0], "add_file") == 0){
-        //return fs_add_file(argv[1], argv[2]);
-        //fs_add_file(argv[1], 10);
-        return 0;
-    }
-
-    if(strcmp(argv[0], "exit") == 0){
-        return -1;
-    }
-	
-    if(strcmp(argv[0], "ls") ==0){ 
-    	
-	dir_list(fs_get_cur_dir());  
-}
-
-  if(strcmp(argv[0], "cd") ==0){ 
-    	
-	//argv[1] takes the user's input and try to navigate
-        fs_change_dir (argv[1]);	
-}
-
-  if(strcmp(argv[0], "ccd") ==0){ 
-    	
-        
- 	dir_create( argv[1] ,fs_get_cur_dir());	
-}
-    if(strcmp(argv[0], "help") ==0){
-        printf("Rescue COMING..\n\n");
-            for(int i = 0; i < sizeof(def_funcs) / sizeof(def_funcs[0]); i++){
-                printf("[%s]: ", def_funcs[i].cmd_id);
-                printf("%s\n", def_funcs[i].description);
-				if(def_funcs[i].min_args <= 0){
-					printf("\targs: none\n");
-				}else{
-					printf("%s\n", def_funcs[i].arg_description);
-				}
-				printf("\n");
-            }
-            
-       
-    }
-
-    if(strcmp(argv[0], "tree") ==0){
-		dir_tree(fs_get_cur_dir(), 0 );
-	}
-
+	// Run associated function!
 	if(strcmp(argv[0], "exfile_add") == 0){
 		exfile_add(argv[1], fs_get_cur_dir());
 	}
@@ -164,9 +137,45 @@ int lsh_parse_input(int argc, char **argv){
 		exfile_write(argv[1], argv[2], fs_get_cur_dir());
 	}
 
-	if(strcmp(argv[0], "rename") ==0){
-		file_rename(argv[1], argv[2], fs_get_cur_dir());
+    if(strcmp(argv[0], "rm") == 0){
+		file_remove(argv[1], fs_get_cur_dir());
 	}
+
+    if(strcmp(argv[0], "cp") == 0){
+		file_copy(argv[1], argv[2], fs_get_cur_dir());
+	}
+
+    if(strcmp(argv[0], "mv") == 0){
+		file_move(argv[1], argv[2], fs_get_cur_dir());
+	}
+
+	if(strcmp(argv[0], "ccd") ==0){ 
+		dir_create( argv[1] ,fs_get_cur_dir());	
+	}
+
+	if(strcmp(argv[0], "cd") ==0){ 
+		fs_change_dir (argv[1]);	
+	}
+
+	if(strcmp(argv[0], "rename") ==0){
+		entry_rename(argv[1], argv[2], fs_get_cur_dir());
+	}
+
+    if(strcmp(argv[0], "ls") ==0){ 
+		dir_list(fs_get_cur_dir());  
+	}
+
+    if(strcmp(argv[0], "tree") ==0){
+		dir_tree(fs_get_cur_dir(), 0);
+	}
+
+    if(strcmp(argv[0], "exit") == 0){
+        return -1;
+    }
+
+    if(strcmp(argv[0], "help") ==0){
+		lsh_print_help();
+    }
     
     return 0;
 }
@@ -275,14 +284,20 @@ void lsh_loop(void)
 
 //Driver
 int main(int argc, char *argv[]){
-    
     //taking a path to a file doesn't exist. ./netfs will automatically create a file call 'test'. A blank file that is, whenever it's created or listed, it's happening within that file.
-    fs_start("test");
+	
+	// Choose filesystem file name. Default: data_fs 
+	char *filesystem_name = "data_fs";
+	if(argc > 1)
+		filesystem_name = argv[1];
+
+	// Create/load the filesystem file.
+    if(fs_start(filesystem_name) == -1)
+		return -1;
     
     lsh_loop();
-     
+
     fs_close();
-    
-    
+
     return 0;
 }

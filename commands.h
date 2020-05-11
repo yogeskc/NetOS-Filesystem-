@@ -95,7 +95,7 @@ int dir_tree (unsigned blk_container, int level);
  *
  * returns - the block location of the search result entry. -1 if it doesnt exist.
  */
-unsigned dir_find_entry (char *name, unsigned blk_container);
+unsigned dir_find_entry (char *name, unsigned blk_container, bool before);
 
 /* 
  * Follow a entry chain until the end is reached,
@@ -139,13 +139,35 @@ int entry_chain_append(unsigned blk_container, unsigned entry_ptr);
  * ../../folder/hello.txt
  * 
  * returns - block location of search entry result, -1 if it doesnt exist.
- * for directories, the link Entry is returned (the entry within the container)
- * for files, the plain Entry is returned.
+ * for directories, the link Entry is returned. In other words,
+ * it returns the entry held within a chain which points to 
+ * another Directory block.
  */
 unsigned resolve_path(char *path, unsigned dir);
 
-//int file_rm (char *name, unsigned blk_container);
-//int file_move (char *path_src, char *path_dest, unsigned blk_container);	
+/* 
+ * Remove a file from it's entry chain,
+ * then mark it as free space.
+ */
+int file_remove (char *name, unsigned blk_container);
+
+/*
+ * Create a new entry based on another file's data.
+ * Append it to destination dir
+ *
+ * params - The first path must be a file, and the second 
+ * path must be a directory.
+ */
+int file_copy (char *path_src, char *path_dest, unsigned blk_container);	
+
+/*
+ * Remove a file from it's entry chain, then append it 
+ * to another dir's chain.
+ *
+ * params - The first path must be a file, and the second 
+ * path must be a directory.
+ */
+int file_move (char *path_src, char *path_dest, unsigned blk_container);	
 
 /*
  * Resolve path parameter into an entry, 
@@ -155,7 +177,7 @@ unsigned resolve_path(char *path, unsigned dir);
  * you cannot rename (/) the root dir
  * you cannot rename (..) directories
  */ 
-int file_rename (char *path, char *new_name, unsigned blk_container);	
+int entry_rename (char *path, char *new_name, unsigned blk_container);	
 
 /*
  * Search for an external file (outside of NetFS)

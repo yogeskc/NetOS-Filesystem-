@@ -47,7 +47,7 @@ unsigned dir_create_root(){
 // Create a new directory within a container dir
 unsigned dir_create(char *name, unsigned blk_container){
 	// check if dir already exists
-	if(dir_find_entry (name, blk_container) != -1){
+	if(dir_find_entry (name, blk_container, false) != -1){
 		printf("Entry %s already exists!\n", name);
 		return -1;
 	}
@@ -168,6 +168,10 @@ int dir_tree (unsigned blk_container, int level){
 	LBAread(dir, 1, blk_container);
 
 	Entry *iter = malloc(BLOCKSIZE);
+	
+	if(level == 0 && blk_container == g_super->blk_root){
+		printf("root/\n");
+	}
 
 	// Load first dir & print it's name
 	LBAread(iter, 1, dir->blk_start);
@@ -183,13 +187,13 @@ int dir_tree (unsigned blk_container, int level){
 
 		// Recursive print dir or just print entry name
 		if(iter->is_dir == 1){
-			for(int i = 0; i < level; i++)
+			for(int i = 0; i < level+1; i++)
 				printf("|_");
 
 			printf("%s/\n", iter->name);
 			dir_tree(iter->blk_data, level+1);
 		}else{
-			for(int i = 0; i < level; i++)
+			for(int i = 0; i < level+1; i++)
 				printf("|_");
 			printf("%s\n", iter->name);
 		}
@@ -202,7 +206,7 @@ int dir_tree (unsigned blk_container, int level){
 }
 
 // Search an entry chain for a matching name, return block pointer
-unsigned dir_find_entry (char *name, unsigned blk_container){
+unsigned dir_find_entry (char *name, unsigned blk_container, bool before){
 	Directory *dir = dir_load(blk_container);
 
 	// Load first entry in dir
@@ -230,7 +234,7 @@ unsigned dir_find_entry (char *name, unsigned blk_container){
 	free(iter);
 	free(dir);
 
-	//if(before) return ptr_last;
+	if(before) return ptr_last;
 	return ptr;
 }
 
@@ -290,62 +294,116 @@ int entry_chain_append(unsigned blk_container, unsigned entry_ptr){
 	return 0;
 }
 
-/*int entry_chain_remove(char *name, unsigned blk_container){
-	unsigned mod_ptr = dir_find_entry(name, blk_container);
-	unsigned rm_ptr = dir_find_entry(name, blk_container);
+// return pointer to the container of an entry
+// ex: "/dir1/dir2/file" would return the block of dir2 (Directory)
+unsigned entry_get_dir(char *path, unsigned blk_container){
+	char *path_dup = strdup(path);
+	char *path_dirname = dirname(path_dup);
 
-	if(mod_ptr == -1 || rm_ptr == -1) return -1;
+	if(strcmp(path_dirname, ".") == 0){
+		return blk_container;
+	}
 
+	unsigned entry_ptr = resolve_path(path_dirname, blk_container);
+
+	if(entry_ptr == -1){
+		free(path_dup);
+		return -1;
+	}
+
+	Entry *entry = entry_load(entry_ptr);
+	unsigned dir_ptr = entry->blk_data;
+
+	free(entry);
+	free(path_dup);
+	return dir_ptr;
+}
+
+int entry_chain_remove(char *path, unsigned blk_container){
+	unsigned entry_ptr = resolve_path(path, blk_container);
+	unsigned entry_dir_ptr = entry_get_dir(path, blk_container);
+
+	if(entry_ptr == -1){
+		printf("couldn't find entry\n");
+		return -1;
+	}
+
+	if(entry_dir_ptr == -1){
+		printf("couldn't find entry dir\n");
+		return -1;
+	}
+
+	Entry *entry = entry_load(entry_ptr);
+
+	unsigned mod_ptr = dir_find_entry(entry->name, entry_dir_ptr, true);
 	Entry *mod = entry_load(mod_ptr);
-	Entry *rm = entry_load(rm_ptr);
 
-	mod->blk_next = rm->blk_next;
+	mod->blk_next = entry->blk_next;
 	LBAwrite(mod, 1, mod_ptr);
 
 	freemap_save();
 
 	free(mod);
-	free(rm);
+	free(entry);
 
 	return 0;
-}*/
+}
 
 unsigned resolve_path(char *path, unsigned dir){
 	if(strlen(path) == 0){
 		return dir;
 	}
 
-	if(path[0] == '/'){
-		dir = g_super->blk_root;
-		if(strlen(path) == 1) return dir;
+	// duplicate path string (so it doesnt get modified)
+	char *buf_name = strdup(path);
+	char *buf_dir = strdup(path);
+
+	// seperate path basename and dir
+	char *fname = basename(buf_name);
+	char *fdir = dirname(buf_dir); 
+
+	//printf("basename: %s, dirname: %s\n", fname, fdir);
+
+	// Edge cases
+	if(strcmp(path, "/") == 0){
+		return g_super->blk_root;
 	}
 
-	char *buffer = strdup(path);
+	// Start at root?
+	if(path[0] == '/'){
+		dir = g_super->blk_root;
+	}
+
 	char *split;
 	Entry *search_entry = malloc(BLOCKSIZE);
-	unsigned result = -1;
+	unsigned search_ptr = -1;
 
-	// Iterate through slashes
-	while((split = strsep(&buffer, "/")) != NULL) {
+	//printf("following path %s\n", fdir);
+
+	// Advance through all slashes.
+	// As the path is followed, each dir is checked
+	while((split = strsep(&fdir, "/")) != NULL) {
 		if(strlen(split) == 0) continue;
+		if(strcmp(split, ".") == 0) continue;
 
-		// split = next entry to search for 
-		unsigned search_ptr = dir_find_entry(split, dir);
+		//printf("Advance -> %s\n", split);
+
+		// check if next split exists within folder
+		search_ptr = dir_find_entry(split, dir, false);
 
 		// entry not found
 		if(search_ptr == -1){
+			free(search_entry);
 			return -1;
 		}
 		
-		// Check if dir or file 
+		// Load match
 		LBAread(search_entry, 1, search_ptr);
-		result = search_ptr;
-		
-		// If file, is end found?
+
+		// if path contains a non-dir, error 
 		if(search_entry->is_dir == 0){
-			free(buffer);
 			free(search_entry);
-			return search_ptr;
+			return -1;
 		}
 
 		// If dir, advance and continue
@@ -354,20 +412,65 @@ unsigned resolve_path(char *path, unsigned dir){
 		}
 	}
 
-	free(buffer);
 	free(search_entry);
 
-	return result;
+	// We've reached our destination dir now.
+	// search for final entry and return it's block location
+	search_ptr = dir_find_entry(fname, dir, false);
+	
+	//printf("searching for %s\n", fname);
+
+	if(search_ptr == -1){
+		return -1;
+	}
+
+	//printf("found %s\n", fname);
+
+	free(buf_name);
+	free(buf_dir);
+
+	return search_ptr;
 }
 
 // Remove a file from the filesystem. Update entry chains and freemap
-int file_rm (char *path, unsigned blk_container){
-	// resolve path to entry
-	// resolve path to container dir 
-	// remove entry from container chain
+int file_remove (char *path, unsigned blk_container){
+	unsigned entry_ptr = resolve_path(path, blk_container);
+	if(entry_ptr == -1){
+		return -1;
+	}
+
+	Entry *entry = entry_load(entry_ptr);
+
+	if(entry->is_dir == 1){
+		printf("Cannot remove %s, it's a directory!\n", entry->name);
+		free(entry);
+		return -1;
+	}
+
+	unsigned entry_blocks = get_required_blocks(entry->size);
+
 	// mark entry and associated data as free
+	freemap_set(0, entry_blocks, entry->blk_data);
+	freemap_set(0, 1, entry_ptr);
+
+	// remove from entry chain
+	entry_chain_remove(path, blk_container);
+
+	freemap_save();
+
+	free(entry);
 	
     return 0;
+}
+
+// Copy a file into another directory. Update entry chains and freemap
+int file_copy (char *path_src, char *path_dest, unsigned blk_container){
+	// resolve path to src entry
+	// resolve path to dest dir 
+	// remove entry from container chain
+	// append entry to dest chain
+	
+	return 0;
 }
 
 // Move a file into another directory. Update entry chains and freemap
@@ -381,7 +484,7 @@ int file_move (char *path_src, char *path_dest, unsigned blk_container){
 }
 
 // Modify an entry name in filesystem
-int file_rename (char *path, char *new_name, unsigned blk_container){
+int entry_rename (char *path, char *new_name, unsigned blk_container){
 	unsigned target = resolve_path(path, blk_container);
 	
 	// invalid path
@@ -433,15 +536,12 @@ int exfile_add (char *path_ext, unsigned blk_container){
 	// Find freespace for data
 	unsigned data_blocks = get_required_blocks(data_size);
 	printf("%d - required blocks\n", data_blocks);
-	unsigned data_ptr = freemap_find_freespace(data_blocks+1, true);
+	unsigned entry_ptr = freemap_find_freespace(1, true);
+	unsigned data_ptr = freemap_find_freespace(data_blocks, true);
 	if(data_ptr == -1){
 		printf("Could not find %d free blocks!\n", data_blocks);
 		return -1;
 	}
-
-	// shift data ptr one over, the first block is for the entry
-	data_ptr += 1;
-	unsigned entry_ptr = data_ptr-1;
 
 	// Create new entry and point it to data
 	Entry *entry = malloc(sizeof(Entry));
@@ -591,12 +691,14 @@ int fs_start(char *filename){
 	uint64_t blockSize = BLOCKSIZE;
 	uint64_t volumeSize = VOLSIZE;
 
+	printf("Starting filesystem %s\n", filename);
+
 	int part_status = startPartitionSystem(filename, &volumeSize, &blockSize);
 	//printf("Partition system started with status %d\n", part_status);
 
 	// Error on FS read from disk
 	if(part_status != 2 && part_status != 0){
-		printf("Error creating/loading the filesystem file!\n");
+		printf("Error creating/loading the filesystem file! %d\n", part_status);
 		return part_status;
 	}
 
