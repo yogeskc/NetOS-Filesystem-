@@ -159,6 +159,10 @@ int lsh_parse_input(int argc, char **argv){
 		file_move(argv[1], argv[2]);
 	}
 
+	if(strcmp(argv[0], "cp") == 0){
+		file_copy(argv[1], argv[2]);
+	}
+
 	// Run associated function
     if(strcmp(argv[0], "exit") == 0){
         return -1;

@@ -23,7 +23,7 @@ unsigned dir_create_root(){
 
 	if(root_start == -1 || parent_start == -1){
 		printf ("Error: not enough space to create root dir!\n");
-		//fs_reload_freemap(); // undo freemap changes
+		fs_reload_freemap(); // undo freemap changes
 		return -1;
 	}
 
@@ -84,7 +84,7 @@ unsigned dir_create(char *name){
 
 	if(link_start == -1 || dir_start == -1 || parent_start == -1) {
 		printf ("Error: not enough space to create the directories!\n");
-		//fs_reload_freemap(); // undo freemap changes
+		fs_reload_freemap(); // undo freemap changes
 		return -1;
 	}
 
@@ -119,7 +119,7 @@ unsigned dir_create(char *name){
 	// Append the link entry to the end of the container's entry chain
 	if(entry_chain_append(g_cur_dir, link_start) == -1){
 		printf("Failed to append new entry!\n");
-		//fs_reload_freemap(); // undo freemap changes
+		fs_reload_freemap(); // undo freemap changes
 		return -1;
 	}
 
@@ -461,6 +461,35 @@ int file_move (char *name_src, char *name_dest){
 	return 0;
 }
 
+int file_copy (char *name_src, char *name_copy){
+	unsigned copy_ptr = dir_find_entry(name_src, g_cur_dir, false);
+	if(copy_ptr == -1){
+		printf("File %s not found in cur directory\n", name_src);
+		return -1;
+	}
+
+	// Check if file already exists
+	if(dir_find_entry(name_copy, g_cur_dir, false) != -1){
+		printf("File %s already exists!\n", name_copy);
+		return -1;
+	}
+
+
+	Entry *copy = entry_load(copy_ptr);
+	
+	// Get entry data and size
+	unsigned data_size = copy->size;
+	unsigned data_blocks = get_required_blocks(data_size);
+	void *data = malloc(BLOCKSIZE * data_blocks);
+	LBAread(data, data_blocks, copy->blk_data);
+
+	// Create a duplicate entry
+	entry_create(name_copy, data, data_size);
+
+	return 0;
+	
+}
+
 // Modify an entry name in filesystem
 int file_rename (char *name, char *new_name){
 	unsigned target = dir_find_entry(name, g_cur_dir, false); //resolve_path(path, g_cur_dir);
@@ -499,7 +528,8 @@ int file_rename (char *name, char *new_name){
 }
 
 // Search for an external file (outside of NetFS) and copy it inside
-int exfile_add (char *path_ext){
+int exfile_add(char *path_ext){
+
 	void *data = get_file_data(path_ext);
 
 	if(data == NULL){
@@ -514,10 +544,17 @@ int exfile_add (char *path_ext){
 	char *path_dup = strdup(path_ext);
 	char *path_base = basename(path_dup);
 
-	if(dir_find_entry(path_base, g_cur_dir, false) != -1){
-		printf("File %s already exists!\n", path_base);
-		free(path_dup);
-		free(data);
+
+	entry_create(path_base, data, data_size);
+
+	free(path_dup);
+	free(data);
+	return 0;
+}
+
+int entry_create (char *name, void *data, unsigned data_size){
+	if(dir_find_entry(name, g_cur_dir, false) != -1){
+		printf("File %s already exists!\n", name);
 		return -1;
 	}
 
@@ -529,15 +566,13 @@ int exfile_add (char *path_ext){
 	unsigned data_ptr = freemap_find_freespace(data_blocks, true);
 	if(data_ptr == -1){
 		printf("Could not find %d free blocks!\n", data_blocks);
-		//fs_reload_freemap();
-		free(path_dup);
-		free(data);
+		fs_reload_freemap();
 		return -1;
 	}
 
 	// Create new entry and point it to data
 	Entry *entry = malloc(sizeof(Entry));
-	strcpy(entry->name, path_base);
+	strcpy(entry->name, name);
 	entry->blk_data = data_ptr;
 	entry->blk_next = -1;
 	entry->size = data_size;
@@ -553,11 +588,9 @@ int exfile_add (char *path_ext){
 	LBAwrite(data, data_blocks, data_ptr);
 	LBAwrite(entry, 1, entry_ptr);
 
-	free(path_dup);
-	free(entry);
-	free(data);
 	freemap_save();
 
+	free(entry);
 	return 0;
 }
 

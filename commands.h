@@ -116,6 +116,12 @@ Directory *dir_load (unsigned block);
 Entry *entry_load (unsigned block);			
 
 /*
+ * Creates a brand new file entry within the current directory.
+ * automatically appends to entry chain
+ */
+int entry_create(char *name, void *data, unsigned data_size);
+
+/*
  * Seek to the end of an entry chain, and 
  * point the final Entry to a new block location
  * params - block of container directory, and new block location to point to
@@ -144,8 +150,27 @@ int entry_chain_append(unsigned blk_container, unsigned entry_ptr);
  */
 unsigned resolve_path(char *path, unsigned dir);
 
+/*
+ * Search within current directory for matching file entry
+ * then, remove from container chain. Mark Entry and data blocks as free
+ */
 int file_remove (char *name);
+
+/*
+ * Search for file matching name_src & dir matching name_dest
+ * Once both are found, remove the src file from it's entry chain.
+ * Append the src file into the new dest directory
+ *
+ * Both src file and dest folder must be within the current directory
+ */
 int file_move (char *name_src, char *name_dest);	
+
+/*
+ * Search current directory for file matching name_src
+ * if it exists, create a matching duplicate entry with 
+ * a new name (name_copy)
+ */
+int file_copy (char *name_src, char *name_copy);	
 
 /*
  * Search for entry within current directory
